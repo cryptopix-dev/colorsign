@@ -98,6 +98,12 @@ std::vector<uint8_t> pack_polynomial_vector(const std::vector<std::vector<uint32
 // Unpack bytes into polynomial vector (little-endian 32-bit per coefficient)
 std::vector<std::vector<uint32_t>> unpack_polynomial_vector(const std::vector<uint8_t>& data, uint32_t k, uint32_t n);
 
+// Compression functions for ML-DSA polynomials
+std::vector<uint8_t> pack_polynomial_vector_compressed(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_sparse(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<std::vector<uint32_t>> unpack_polynomial_vector_compressed(const std::vector<uint8_t>& data, uint32_t k, uint32_t n, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_auto(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+
 } // namespace clwe
 
 #endif // CLWE_UTILS_HPP

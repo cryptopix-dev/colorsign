@@ -35,6 +35,12 @@ target_link_libraries(test_stress PRIVATE colorsign_macos gtest_main)
 
 add_executable(test_security_utils test_security_utils.cpp)
 target_link_libraries(test_security_utils PRIVATE colorsign_macos gtest_main)
+add_executable(test_compression test_compression.cpp)
+target_link_libraries(test_compression PRIVATE colorsign_macos gtest_main)
+
+add_executable(test_final_validation test_final_validation.cpp)
+target_link_libraries(test_final_validation PRIVATE colorsign_macos gtest_main)
+
 
 
 # Register tests
@@ -48,3 +54,7 @@ add_test(NAME IntegrationTests COMMAND test_integration)
 add_test(NAME KATTests COMMAND test_kat)
 add_test(NAME StressTests COMMAND test_stress)
 add_test(NAME SecurityUtilsTests COMMAND test_security_utils)
+
+add_test(NAME CompressionTests COMMAND test_compression)
+
+add_test(NAME FinalValidationTests COMMAND test_final_validation)

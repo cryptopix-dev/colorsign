@@ -148,6 +148,25 @@ std::vector<std::vector<uint32_t>> ColorSignKeyGen::decode_colors_to_polynomial_
     return clwe::decode_colors_to_polynomial_vector(color_data, params_.module_rank, params_.degree, params_.modulus);
 }
 
+// Helper method to unpack compressed polynomial data
+std::vector<std::vector<uint32_t>> ColorSignKeyGen::unpack_polynomial_data(const std::vector<uint8_t>& data, uint32_t k, uint32_t n) const {
+    if (data.empty()) return {};
+
+    // Check if this is compressed data
+    if (data.size() >= 5 && data[0] == 0x01 && (data[1] == 0x01 || data[1] == 0x02 || data[1] == 0x03)) {
+        // Compressed format - use compressed unpacking
+        return unpack_polynomial_vector_compressed(data, k, n, params_.modulus);
+    } else {
+        // Standard format - use regular unpacking
+        return unpack_polynomial_vector(data, k, n);
+    }
+}
+
+// Helper method to pack polynomial data with auto-compression
+std::vector<uint8_t> ColorSignKeyGen::pack_polynomial_data(const std::vector<std::vector<uint32_t>>& poly_vector) const {
+    return pack_polynomial_vector_auto(poly_vector, params_.modulus);
+}
+
 // Generate keypair
 std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_keypair() {
     // Generate random rho and K
@@ -169,16 +188,15 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
     // Compute tr
     auto tr = compute_tr(t, rho, K);
 
-    // Pack polynomials using standard ML-DSA packing (FIPS 204 compliant)
-    auto public_data = pack_polynomial_vector(t);
-    auto secret_data = pack_polynomial_vector(s1);
-    auto s2_packed = pack_polynomial_vector(s2);
+    // Pack polynomials using compressed format for better storage efficiency
+    auto public_data = pack_polynomial_vector_auto(t, params_.modulus);
+    auto secret_data = pack_polynomial_vector_auto(s1, params_.modulus);
+    auto s2_packed = pack_polynomial_vector_auto(s2, params_.modulus);
     secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
-    auto t_packed = pack_polynomial_vector(t);
-    secret_data.insert(secret_data.end(), t_packed.begin(), t_packed.end());
 
-    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_};
-    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_};
+    // Create keys with compression enabled
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
 
     return {public_key_struct, private_key_struct};
 }
@@ -209,15 +227,48 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
 
     auto tr = compute_tr(t, rho, K);
 
-    auto public_data = pack_polynomial_vector(t);
-    auto secret_data = pack_polynomial_vector(s1);
-    auto s2_packed = pack_polynomial_vector(s2);
+    auto public_data = pack_polynomial_vector_auto(t, params_.modulus);
+    auto secret_data = pack_polynomial_vector_auto(s1, params_.modulus);
+    auto s2_packed = pack_polynomial_vector_auto(s2, params_.modulus);
     secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
-    auto t_packed = pack_polynomial_vector(t);
-    secret_data.insert(secret_data.end(), t_packed.begin(), t_packed.end());
 
-    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_};
-    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_};
+    // Create keys with compression enabled
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
+
+    return {public_key_struct, private_key_struct};
+}
+
+// Optimized key generation with advanced compression and color integration
+std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_keypair_optimized() {
+    // Generate random rho and K
+    std::array<uint8_t, 32> rho;
+    secure_random_bytes(rho.data(), rho.size());
+    std::array<uint8_t, 32> K;
+    secure_random_bytes(K.data(), K.size());
+
+    // Generate matrix A
+    auto matrix_A = generate_matrix_A(rho);
+
+    // Sample secret keys s1 and s2
+    auto s1 = sample_s1(K);
+    auto s2 = sample_s2(K);
+
+    // Compute t = A * s1 + s2
+    auto t = compute_t(matrix_A, s1, s2);
+
+    // Compute tr
+    auto tr = compute_tr(t, rho, K);
+
+    // Use advanced auto-compression with ML-DSA parameters for context-aware optimization
+    auto public_data = pack_polynomial_vector_auto_advanced(t, params_.modulus, params_.eta, params_.gamma1, params_.gamma2);
+    auto secret_data = pack_polynomial_vector_auto_advanced(s1, params_.modulus, params_.eta, params_.gamma1, params_.gamma2);
+    auto s2_packed = pack_polynomial_vector_auto_advanced(s2, params_.modulus, params_.eta, params_.gamma1, params_.gamma2);
+    secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
+
+    // Create keys with advanced compression enabled
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
 
     return {public_key_struct, private_key_struct};
 }
@@ -225,6 +276,11 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
 // Serialization implementations
 std::vector<uint8_t> ColorSignPublicKey::serialize() const {
     std::vector<uint8_t> data;
+
+    // Add format version and compression flag
+    data.push_back(format_version);
+    data.push_back(use_compression ? 0x01 : 0x00);
+
     data.insert(data.end(), seed_rho.begin(), seed_rho.end());
     data.insert(data.end(), seed_K.begin(), seed_K.end());
     data.insert(data.end(), hash_tr.begin(), hash_tr.end());
@@ -233,12 +289,17 @@ std::vector<uint8_t> ColorSignPublicKey::serialize() const {
 }
 
 ColorSignPublicKey ColorSignPublicKey::deserialize(const std::vector<uint8_t>& data, const CLWEParameters& params) {
-    if (data.size() < 32 + 32 + 64) {
+    if (data.size() < 32 + 32 + 64 + 2) { // +2 for version and compression flags
         throw std::invalid_argument("Public key data too small");
     }
 
     ColorSignPublicKey key;
     size_t offset = 0;
+
+    // Read format version and compression flag
+    key.format_version = data[offset++];
+    bool compressed = data[offset++] == 0x01;
+
     std::copy(data.begin() + offset, data.begin() + offset + 32, key.seed_rho.begin());
     offset += 32;
     std::copy(data.begin() + offset, data.begin() + offset + 32, key.seed_K.begin());
@@ -247,11 +308,18 @@ ColorSignPublicKey ColorSignPublicKey::deserialize(const std::vector<uint8_t>& d
     offset += 64;
     key.public_data.assign(data.begin() + offset, data.end());
     key.params = params;
+    key.use_compression = compressed;
+
     return key;
 }
 
 std::vector<uint8_t> ColorSignPrivateKey::serialize() const {
     std::vector<uint8_t> data;
+
+    // Add format version and compression flag
+    data.push_back(format_version);
+    data.push_back(use_compression ? 0x01 : 0x00);
+
     data.insert(data.end(), seed_rho.begin(), seed_rho.end());
     data.insert(data.end(), seed_K.begin(), seed_K.end());
     data.insert(data.end(), hash_tr.begin(), hash_tr.end());
@@ -260,12 +328,17 @@ std::vector<uint8_t> ColorSignPrivateKey::serialize() const {
 }
 
 ColorSignPrivateKey ColorSignPrivateKey::deserialize(const std::vector<uint8_t>& data, const CLWEParameters& params) {
-    if (data.size() < 32 + 32 + 64) {
+    if (data.size() < 32 + 32 + 64 + 2) { // +2 for version and compression flags
         throw std::invalid_argument("Private key data too small");
     }
 
     ColorSignPrivateKey key;
     size_t offset = 0;
+
+    // Read format version and compression flag
+    key.format_version = data[offset++];
+    bool compressed = data[offset++] == 0x01;
+
     std::copy(data.begin() + offset, data.begin() + offset + 32, key.seed_rho.begin());
     offset += 32;
     std::copy(data.begin() + offset, data.begin() + offset + 32, key.seed_K.begin());
@@ -274,6 +347,8 @@ ColorSignPrivateKey ColorSignPrivateKey::deserialize(const std::vector<uint8_t>&
     offset += 64;
     key.secret_data.assign(data.begin() + offset, data.end());
     key.params = params;
+    key.use_compression = compressed;
+
     return key;
 }
 

@@ -21,11 +21,14 @@ struct ColorSignPublicKey {
     std::array<uint8_t, 64> hash_tr;    // Hash of public key (tr)
     std::vector<uint8_t> public_data;   // Serialized public key polynomial t (as colors)
     CLWEParameters params;               // Cryptographic parameters
+    uint8_t format_version = 0x01;       // Format version (1 = original, 2 = compressed)
+    bool use_compression = false;        // Flag indicating if compression is used
 
     ColorSignPublicKey() = default;
     ColorSignPublicKey(const std::array<uint8_t, 32>& rho, const std::array<uint8_t, 32>& K,
-                       const std::array<uint8_t, 64>& tr, const std::vector<uint8_t>& pd, const CLWEParameters& p)
-        : seed_rho(rho), seed_K(K), hash_tr(tr), public_data(pd), params(p) {}
+                       const std::array<uint8_t, 64>& tr, const std::vector<uint8_t>& pd, const CLWEParameters& p,
+                       bool compressed = false)
+        : seed_rho(rho), seed_K(K), hash_tr(tr), public_data(pd), params(p), use_compression(compressed) {}
 
     std::vector<uint8_t> serialize() const;
     static ColorSignPublicKey deserialize(const std::vector<uint8_t>& data, const CLWEParameters& params);
@@ -37,11 +40,14 @@ struct ColorSignPrivateKey {
     std::array<uint8_t, 64> hash_tr;    // Hash of public key (tr)
     std::vector<uint8_t> secret_data;   // Serialized secret polynomials s1, s2, t0 (as colors)
     CLWEParameters params;               // Cryptographic parameters
+    uint8_t format_version = 0x01;       // Format version (1 = original, 2 = compressed)
+    bool use_compression = false;        // Flag indicating if compression is used
 
     ColorSignPrivateKey() = default;
     ColorSignPrivateKey(const std::array<uint8_t, 32>& rho, const std::array<uint8_t, 32>& K,
-                        const std::array<uint8_t, 64>& tr, const std::vector<uint8_t>& sd, const CLWEParameters& p)
-        : seed_rho(rho), seed_K(K), hash_tr(tr), secret_data(sd), params(p) {}
+                        const std::array<uint8_t, 64>& tr, const std::vector<uint8_t>& sd, const CLWEParameters& p,
+                        bool compressed = false)
+        : seed_rho(rho), seed_K(K), hash_tr(tr), secret_data(sd), params(p), use_compression(compressed) {}
 
     std::vector<uint8_t> serialize() const;
     static ColorSignPrivateKey deserialize(const std::vector<uint8_t>& data, const CLWEParameters& params);
@@ -64,6 +70,9 @@ private:
                                        const std::array<uint8_t, 32>& K) const;
     std::vector<uint8_t> encode_polynomial_vector_as_colors(const std::vector<std::vector<uint32_t>>& poly_vector) const;
     std::vector<std::vector<uint32_t>> decode_colors_to_polynomial_vector(const std::vector<uint8_t>& color_data) const;
+    // Compression helper methods
+    std::vector<std::vector<uint32_t>> unpack_polynomial_data(const std::vector<uint8_t>& data, uint32_t k, uint32_t n) const;
+    std::vector<uint8_t> pack_polynomial_data(const std::vector<std::vector<uint32_t>>& poly_vector) const;
 
 
 public:

@@ -62,6 +62,21 @@ std::vector<uint8_t> encode_polynomial_vector_as_colors(const std::vector<std::v
  */
 std::vector<std::vector<uint32_t>> decode_colors_to_polynomial_vector(const std::vector<uint8_t>& color_data, uint32_t k, uint32_t n, uint32_t modulus);
 
+// Compression functions for color integration
+std::vector<uint8_t> encode_polynomial_vector_as_colors_compressed(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> encode_polynomial_vector_as_colors_huffman(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<std::vector<uint32_t>> decode_colors_to_polynomial_vector_compressed(const std::vector<uint8_t>& color_data, uint32_t k, uint32_t n, uint32_t modulus);
+std::vector<uint8_t> convert_compressed_to_color_format(const std::vector<uint8_t>& compressed_data, uint32_t k, uint32_t n, uint32_t modulus);
+std::vector<uint8_t> encode_polynomial_vector_as_colors_auto(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+
+// Advanced color integration functions
+std::vector<uint8_t> generate_color_representation_from_compressed(const std::vector<uint8_t>& compressed_data, uint32_t k, uint32_t n, uint32_t modulus);
+std::vector<uint8_t> compress_with_color_support(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus, bool enable_color_metadata = true);
+std::vector<std::vector<uint32_t>> decompress_with_color_support(const std::vector<uint8_t>& dual_format_data, uint32_t& out_k, uint32_t& out_n, uint32_t& out_modulus);
+std::vector<uint8_t> generate_color_from_dual_format(const std::vector<uint8_t>& dual_format_data);
+std::vector<uint8_t> encode_polynomial_vector_with_color_integration(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus, bool enable_on_demand_color = true);
+std::vector<std::vector<uint32_t>> decode_polynomial_vector_with_color_integration(const std::vector<uint8_t>& color_integrated_data, uint32_t modulus);
+
 } // namespace clwe
 
 #endif // CLWE_COLOR_INTEGRATION_HPP

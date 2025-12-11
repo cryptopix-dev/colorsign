@@ -503,8 +503,8 @@ std::vector<std::vector<uint32_t>> ColorSign::generate_matrix_A(const std::array
 
 // Extract s1 from private key (first k polynomials)
 std::vector<std::vector<uint32_t>> ColorSign::extract_s1_from_private_key(const std::vector<uint8_t>& secret_data) const {
-    // Unpack the packed secret data to get s1, s2, t0 (3*k polynomials)
-    auto all_polys = unpack_polynomial_vector(secret_data, 3 * params_.module_rank, params_.degree);
+    // Unpack the packed secret data to get s1, s2 (2*k polynomials)
+    auto all_polys = unpack_polynomial_vector(secret_data, 2 * params_.module_rank, params_.degree);
 
     uint32_t k = params_.module_rank;
 
@@ -514,8 +514,8 @@ std::vector<std::vector<uint32_t>> ColorSign::extract_s1_from_private_key(const 
 
 // Extract s2 from private key (second k polynomials)
 std::vector<std::vector<uint32_t>> ColorSign::extract_s2_from_private_key(const std::vector<uint8_t>& secret_data) const {
-    // Unpack the packed secret data to get s1, s2, t0 (3*k polynomials)
-    auto all_polys = unpack_polynomial_vector(secret_data, 3 * params_.module_rank, params_.degree);
+    // Unpack the packed secret data to get s1, s2 (2*k polynomials)
+    auto all_polys = unpack_polynomial_vector(secret_data, 2 * params_.module_rank, params_.degree);
 
     uint32_t k = params_.module_rank;
 

@@ -433,6 +433,289 @@ std::vector<uint8_t> pack_polynomial_vector(const std::vector<std::vector<uint32
     return packed;
 }
 
+// Variable-length encoding for polynomial coefficients
+// Uses 1-5 bytes per coefficient based on value size
+std::vector<uint8_t> pack_polynomial_vector_compressed(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus) {
+    std::vector<uint8_t> compressed;
+    compressed.reserve(1024); // Reserve reasonable initial size
+
+    // Add format version and compression flag
+    compressed.push_back(0x01); // Version 1
+    compressed.push_back(0x01); // Compression flag (1 = compressed)
+
+    // Store number of polynomials and degree
+    uint32_t k = poly_vector.size();
+    uint32_t n = k > 0 ? poly_vector[0].size() : 0;
+
+    compressed.push_back(static_cast<uint8_t>(k));
+    compressed.push_back(static_cast<uint8_t>(n >> 8));
+    compressed.push_back(static_cast<uint8_t>(n & 0xFF));
+
+    // Variable-length encoding for each coefficient
+    for (const auto& poly : poly_vector) {
+        for (uint32_t coeff : poly) {
+            coeff %= modulus;
+
+            // Variable-length encoding
+            if (coeff == 0) {
+                compressed.push_back(0x00); // Single byte for zero
+            } else if (coeff < 0x80) {
+                compressed.push_back(static_cast<uint8_t>(coeff | 0x80)); // 1 byte: 10xxxxxx
+            } else if (coeff < 0x4000) {
+                // 2 bytes: 110xxxxx xxxxxxxx
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) | 0xC0));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            } else if (coeff < 0x200000) {
+                // 3 bytes: 1110xxxx xxxxxxxx xxxxxxxx
+                compressed.push_back(static_cast<uint8_t>((coeff >> 16) | 0xE0));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            } else if (coeff < 0x10000000) {
+                // 4 bytes: 11110xxx xxxxxxxx xxxxxxxx xxxxxxxx
+                compressed.push_back(static_cast<uint8_t>((coeff >> 24) | 0xF0));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 16) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            } else {
+                // 5 bytes: 111110xx xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
+                compressed.push_back(0xFC);
+                compressed.push_back(static_cast<uint8_t>((coeff >> 24) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 16) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            }
+        }
+    }
+
+    return compressed;
+}
+
+// Sparse representation for polynomials with many zeros
+std::vector<uint8_t> pack_polynomial_vector_sparse(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus) {
+    std::vector<uint8_t> compressed;
+    compressed.reserve(1024);
+
+    // Add format version and compression flag
+    compressed.push_back(0x01); // Version 1
+    compressed.push_back(0x02); // Compression flag (2 = sparse)
+
+    // Store number of polynomials and degree
+    uint32_t k = poly_vector.size();
+    uint32_t n = k > 0 ? poly_vector[0].size() : 0;
+
+    compressed.push_back(static_cast<uint8_t>(k));
+    compressed.push_back(static_cast<uint8_t>(n >> 8));
+    compressed.push_back(static_cast<uint8_t>(n & 0xFF));
+
+    // Sparse encoding: store (index, value) pairs for non-zero coefficients
+    for (const auto& poly : poly_vector) {
+        std::vector<std::pair<uint16_t, uint32_t>> non_zero_coeffs;
+
+        for (uint16_t i = 0; i < poly.size(); ++i) {
+            uint32_t coeff = poly[i] % modulus;
+            if (coeff != 0) {
+                non_zero_coeffs.emplace_back(i, coeff);
+            }
+        }
+
+        // Store number of non-zero coefficients (2 bytes)
+        uint16_t nnz = non_zero_coeffs.size();
+        compressed.push_back(static_cast<uint8_t>(nnz >> 8));
+        compressed.push_back(static_cast<uint8_t>(nnz & 0xFF));
+
+        // Store each non-zero coefficient with variable-length encoding
+        for (const auto& [index, coeff] : non_zero_coeffs) {
+            // Store index (2 bytes)
+            compressed.push_back(static_cast<uint8_t>(index >> 8));
+            compressed.push_back(static_cast<uint8_t>(index & 0xFF));
+
+            // Store coefficient with variable-length encoding
+            if (coeff < 0x80) {
+                compressed.push_back(static_cast<uint8_t>(coeff | 0x80));
+            } else if (coeff < 0x4000) {
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) | 0xC0));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            } else if (coeff < 0x200000) {
+                compressed.push_back(static_cast<uint8_t>((coeff >> 16) | 0xE0));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            } else if (coeff < 0x10000000) {
+                compressed.push_back(static_cast<uint8_t>((coeff >> 24) | 0xF0));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 16) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            } else {
+                compressed.push_back(0xFC);
+                compressed.push_back(static_cast<uint8_t>((coeff >> 24) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 16) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>((coeff >> 8) & 0xFF));
+                compressed.push_back(static_cast<uint8_t>(coeff & 0xFF));
+            }
+        }
+    }
+
+    return compressed;
+}
+
+// Unpack compressed polynomial vector (handles both variable-length and sparse formats)
+std::vector<std::vector<uint32_t>> unpack_polynomial_vector_compressed(const std::vector<uint8_t>& data, uint32_t k, uint32_t n, uint32_t modulus) {
+    if (data.size() < 5) {
+        throw std::invalid_argument("Compressed data too small");
+    }
+
+    size_t offset = 0;
+    uint8_t version = data[offset++];
+    uint8_t compression_flag = data[offset++];
+
+    // Validate version
+    if (version != 0x01) {
+        throw std::invalid_argument("Unsupported compression format version");
+    }
+
+    // Read dimensions
+    uint32_t data_k = data[offset++];
+    uint32_t data_n = (static_cast<uint32_t>(data[offset]) << 8) | data[offset + 1];
+    offset += 2;
+
+    // Validate dimensions
+    if (data_k != k || data_n != n) {
+        throw std::invalid_argument("Dimension mismatch in compressed data");
+    }
+
+    std::vector<std::vector<uint32_t>> poly_vector(k, std::vector<uint32_t>(n, 0));
+
+    if (compression_flag == 0x01) {
+        // Variable-length encoding
+        for (uint32_t i = 0; i < k; ++i) {
+            for (uint32_t j = 0; j < n; ++j) {
+                if (offset >= data.size()) {
+                    throw std::invalid_argument("Truncated compressed data");
+                }
+
+                uint8_t first_byte = data[offset++];
+                uint32_t coeff = 0;
+
+                if (first_byte == 0x00) {
+                    coeff = 0;
+                } else if ((first_byte & 0xC0) == 0x80) {
+                    // 1 byte: 10xxxxxx
+                    coeff = first_byte & 0x7F;
+                } else if ((first_byte & 0xE0) == 0xC0) {
+                    // 2 bytes: 110xxxxx xxxxxxxx
+                    if (offset >= data.size()) throw std::invalid_argument("Truncated compressed data");
+                    coeff = ((first_byte & 0x3F) << 8) | data[offset++];
+                } else if ((first_byte & 0xF0) == 0xE0) {
+                    // 3 bytes: 1110xxxx xxxxxxxx xxxxxxxx
+                    if (offset + 1 >= data.size()) throw std::invalid_argument("Truncated compressed data");
+                    coeff = ((first_byte & 0x0F) << 16) | (data[offset] << 8) | data[offset + 1];
+                    offset += 2;
+                } else if ((first_byte & 0xF8) == 0xF0) {
+                    // 4 bytes: 11110xxx xxxxxxxx xxxxxxxx xxxxxxxx
+                    if (offset + 2 >= data.size()) throw std::invalid_argument("Truncated compressed data");
+                    coeff = ((first_byte & 0x07) << 24) | (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
+                    offset += 3;
+                } else if (first_byte == 0xFC) {
+                    // 5 bytes: 111110xx xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
+                    if (offset + 3 >= data.size()) throw std::invalid_argument("Truncated compressed data");
+                    coeff = (data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3];
+                    offset += 4;
+                } else {
+                    throw std::invalid_argument("Invalid variable-length encoding");
+                }
+
+                poly_vector[i][j] = coeff % modulus;
+            }
+        }
+    } else if (compression_flag == 0x02) {
+        // Sparse encoding
+        for (uint32_t i = 0; i < k; ++i) {
+            if (offset + 1 >= data.size()) {
+                throw std::invalid_argument("Truncated sparse compressed data");
+            }
+
+            // Read number of non-zero coefficients
+            uint16_t nnz = (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
+            offset += 2;
+
+            // Initialize polynomial with zeros
+            std::fill(poly_vector[i].begin(), poly_vector[i].end(), 0);
+
+            // Read each non-zero coefficient
+            for (uint16_t idx = 0; idx < nnz; ++idx) {
+                if (offset + 1 >= data.size()) {
+                    throw std::invalid_argument("Truncated sparse compressed data");
+                }
+
+                // Read index
+                uint16_t pos = (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
+                offset += 2;
+
+                if (pos >= n) {
+                    throw std::invalid_argument("Invalid coefficient index in sparse data");
+                }
+
+                // Read coefficient with variable-length encoding
+                if (offset >= data.size()) {
+                    throw std::invalid_argument("Truncated sparse compressed data");
+                }
+
+                uint8_t first_byte = data[offset++];
+                uint32_t coeff = 0;
+
+                if ((first_byte & 0xC0) == 0x80) {
+                    coeff = first_byte & 0x7F;
+                } else if ((first_byte & 0xE0) == 0xC0) {
+                    if (offset >= data.size()) throw std::invalid_argument("Truncated sparse compressed data");
+                    coeff = ((first_byte & 0x3F) << 8) | data[offset++];
+                } else if ((first_byte & 0xF0) == 0xE0) {
+                    if (offset + 1 >= data.size()) throw std::invalid_argument("Truncated sparse compressed data");
+                    coeff = ((first_byte & 0x0F) << 16) | (data[offset] << 8) | data[offset + 1];
+                    offset += 2;
+                } else if ((first_byte & 0xF8) == 0xF0) {
+                    if (offset + 2 >= data.size()) throw std::invalid_argument("Truncated sparse compressed data");
+                    coeff = ((first_byte & 0x07) << 24) | (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
+                    offset += 3;
+                } else if (first_byte == 0xFC) {
+                    if (offset + 3 >= data.size()) throw std::invalid_argument("Truncated sparse compressed data");
+                    coeff = (data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3];
+                    offset += 4;
+                } else {
+                    throw std::invalid_argument("Invalid variable-length encoding in sparse data");
+                }
+
+                poly_vector[i][pos] = coeff % modulus;
+            }
+        }
+    } else {
+        throw std::invalid_argument("Unknown compression format");
+    }
+
+    return poly_vector;
+}
+
+// Auto-select best compression method based on sparsity
+std::vector<uint8_t> pack_polynomial_vector_auto(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus) {
+    // Count non-zero coefficients to determine sparsity
+    size_t total_coeffs = 0;
+    size_t non_zero_coeffs = 0;
+
+    for (const auto& poly : poly_vector) {
+        for (uint32_t coeff : poly) {
+            total_coeffs++;
+            if ((coeff % modulus) != 0) {
+                non_zero_coeffs++;
+            }
+        }
+    }
+
+    // If more than 50% zeros, use sparse representation
+    if (non_zero_coeffs < total_coeffs / 2) {
+        return pack_polynomial_vector_sparse(poly_vector, modulus);
+    } else {
+        return pack_polynomial_vector_compressed(poly_vector, modulus);
+    }
+}
+
 // Unpack bytes into polynomial vector (little-endian 32-bit per coefficient)
 std::vector<std::vector<uint32_t>> unpack_polynomial_vector(const std::vector<uint8_t>& data, uint32_t k, uint32_t n) {
     if (data.size() != k * n * 4) {

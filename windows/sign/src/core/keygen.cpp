@@ -174,8 +174,6 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
     auto secret_data = pack_polynomial_vector(s1);
     auto s2_packed = pack_polynomial_vector(s2);
     secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
-    auto t_packed = pack_polynomial_vector(t);
-    secret_data.insert(secret_data.end(), t_packed.begin(), t_packed.end());
 
     ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_};
     ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_};
@@ -213,8 +211,6 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
     auto secret_data = pack_polynomial_vector(s1);
     auto s2_packed = pack_polynomial_vector(s2);
     secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
-    auto t_packed = pack_polynomial_vector(t);
-    secret_data.insert(secret_data.end(), t_packed.begin(), t_packed.end());
 
     ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_};
     ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_};
