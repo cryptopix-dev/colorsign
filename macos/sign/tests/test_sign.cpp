@@ -128,6 +128,12 @@ TEST_F(SignTest, SignLargeMessage) {
     });
 }
 
+TEST_F(SignTest, SignMessageTooLarge) {
+    std::vector<uint8_t> too_large_message(1024 * 1024 + 1, 'A');  // >1MB
+
+    EXPECT_THROW(signer->sign_message(too_large_message, private_key, public_key), std::invalid_argument);
+}
+
 
 TEST_F(SignTest, ErrorMessageUtility) {
     EXPECT_EQ(clwe::get_colorsign_sign_error_message(clwe::ColorSignSignError::SUCCESS), "Success");

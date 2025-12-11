@@ -188,15 +188,15 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
     // Compute tr
     auto tr = compute_tr(t, rho, K);
 
-    // Pack polynomials using compressed format for better storage efficiency
-    auto public_data = pack_polynomial_vector_auto(t, params_.modulus);
-    auto secret_data = pack_polynomial_vector_auto(s1, params_.modulus);
-    auto s2_packed = pack_polynomial_vector_auto(s2, params_.modulus);
+    // Pack polynomials using uncompressed format for compatibility
+    auto public_data = pack_polynomial_vector(t);
+    auto secret_data = pack_polynomial_vector(s1);
+    auto s2_packed = pack_polynomial_vector(s2);
     secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
 
-    // Create keys with compression enabled
-    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
-    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
+    // Create keys without compression
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, false};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, false};
 
     return {public_key_struct, private_key_struct};
 }
@@ -227,14 +227,14 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
 
     auto tr = compute_tr(t, rho, K);
 
-    auto public_data = pack_polynomial_vector_auto(t, params_.modulus);
-    auto secret_data = pack_polynomial_vector_auto(s1, params_.modulus);
-    auto s2_packed = pack_polynomial_vector_auto(s2, params_.modulus);
+    auto public_data = pack_polynomial_vector(t);
+    auto secret_data = pack_polynomial_vector(s1);
+    auto s2_packed = pack_polynomial_vector(s2);
     secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
 
-    // Create keys with compression enabled
-    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
-    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
+    // Create keys without compression
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, false};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, false};
 
     return {public_key_struct, private_key_struct};
 }
@@ -260,15 +260,15 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
     // Compute tr
     auto tr = compute_tr(t, rho, K);
 
-    // Use advanced auto-compression with ML-DSA parameters for context-aware optimization
-    auto public_data = pack_polynomial_vector_auto_advanced(t, params_.modulus, params_.eta, params_.gamma1, params_.gamma2);
-    auto secret_data = pack_polynomial_vector_auto_advanced(s1, params_.modulus, params_.eta, params_.gamma1, params_.gamma2);
-    auto s2_packed = pack_polynomial_vector_auto_advanced(s2, params_.modulus, params_.eta, params_.gamma1, params_.gamma2);
+    // Use uncompressed packing for compatibility
+    auto public_data = pack_polynomial_vector(t);
+    auto secret_data = pack_polynomial_vector(s1);
+    auto s2_packed = pack_polynomial_vector(s2);
     secret_data.insert(secret_data.end(), s2_packed.begin(), s2_packed.end());
 
-    // Create keys with advanced compression enabled
-    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
-    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
+    // Create keys without compression
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, false};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, false};
 
     return {public_key_struct, private_key_struct};
 }
