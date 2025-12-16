@@ -98,9 +98,25 @@ std::vector<uint8_t> pack_polynomial_vector(const std::vector<std::vector<uint32
 // Unpack bytes into polynomial vector (little-endian 32-bit per coefficient)
 std::vector<std::vector<uint32_t>> unpack_polynomial_vector(const std::vector<uint8_t>& data, uint32_t k, uint32_t n);
 
-// ML-DSA standard compression using d bits per coefficient
+// Compression functions for ML-DSA polynomials
+std::vector<uint8_t> pack_polynomial_vector_compressed(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_sparse(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_sparse_enhanced(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_huffman(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_adaptive_huffman(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_arithmetic(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_context_aware(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus, uint32_t eta = 2, uint32_t gamma1 = 0, uint32_t gamma2 = 0);
 std::vector<uint8_t> pack_polynomial_vector_ml_dsa(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus, uint32_t d);
+std::vector<std::vector<uint32_t>> unpack_polynomial_vector_compressed(const std::vector<uint8_t>& data, uint32_t k, uint32_t n, uint32_t modulus);
+std::vector<std::vector<uint32_t>> unpack_polynomial_vector_sparse_enhanced(const std::vector<uint8_t>& data, uint32_t k, uint32_t n, uint32_t modulus);
 std::vector<std::vector<uint32_t>> unpack_polynomial_vector_ml_dsa(const std::vector<uint8_t>& data, uint32_t k, uint32_t n, uint32_t modulus, uint32_t d);
+std::vector<uint8_t> pack_polynomial_vector_auto(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> pack_polynomial_vector_auto_advanced(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus, uint32_t eta = 2, uint32_t gamma1 = 0, uint32_t gamma2 = 0);
+
+// Huffman coding functions
+std::vector<uint8_t> build_huffman_table(const std::vector<std::vector<uint32_t>>& poly_vector, uint32_t modulus);
+std::vector<uint8_t> huffman_encode_polynomial_vector(const std::vector<std::vector<uint32_t>>& poly_vector, const std::vector<uint8_t>& huffman_table, uint32_t modulus);
+std::vector<std::vector<uint32_t>> huffman_decode_polynomial_vector(const std::vector<uint8_t>& data, uint32_t k, uint32_t n, uint32_t modulus);
 
 } // namespace clwe
 

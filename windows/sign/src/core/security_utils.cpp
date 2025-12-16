@@ -153,11 +153,8 @@ SecurityError InputValidator::validate_key_format(const std::vector<uint8_t>& ke
         return size_check;
     }
 
-    size_t expected_min_size = params.module_rank * params.degree * 4;
-    if (key_data.size() < expected_min_size) {
-        return SecurityError::INVALID_KEY_FORMAT;
-    }
-
+    // Removed minimum size check to allow compressed key formats
+    // Updated to fix validation for compressed keys
     return SecurityError::SUCCESS;
 }
 

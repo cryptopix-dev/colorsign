@@ -148,7 +148,29 @@ std::vector<std::vector<uint32_t>> ColorSignKeyGen::decode_colors_to_polynomial_
     return clwe::decode_colors_to_polynomial_vector(color_data, params_.module_rank, params_.degree, params_.modulus);
 }
 
+// Helper method to unpack polynomial data (supports color, compressed, and standard formats)
+std::vector<std::vector<uint32_t>> ColorSignKeyGen::unpack_polynomial_data(const std::vector<uint8_t>& data, uint32_t k, uint32_t n) const {
+    if (data.empty()) return {};
 
+    // Check if this is 8-bit grayscale color data
+    if (data.size() == params_.module_rank * params_.degree * 1) {
+        // Color format - decode 8-bit grayscale pixels to polynomials
+        return decode_colors_to_polynomial_vector(data);
+    }
+    // Check if this is compressed data
+    else if (data.size() >= 5 && data[0] == 0x01 && (data[1] == 0x01 || data[1] == 0x02 || data[1] == 0x03)) {
+        // Compressed format - use compressed unpacking
+        return unpack_polynomial_vector_compressed(data, k, n, params_.modulus);
+    } else {
+        // Standard ML-DSA format - use regular unpacking
+        return unpack_polynomial_vector(data, k, n);
+    }
+}
+
+// Helper method to pack polynomial data with auto-compression
+std::vector<uint8_t> ColorSignKeyGen::pack_polynomial_data(const std::vector<std::vector<uint32_t>>& poly_vector) const {
+    return encode_polynomial_vector_as_colors(poly_vector);
+}
 
 // Generate keypair
 std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_keypair() {
@@ -171,15 +193,15 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
     // Compute tr
     auto tr = compute_tr(t, rho, K);
 
-    // Use ML-DSA compression for internal storage
-    auto public_data = clwe::pack_polynomial_vector_ml_dsa(t, params_.modulus, 10);
-    auto s1_data = clwe::pack_polynomial_vector_ml_dsa(s1, params_.modulus, 10);
-    auto s2_data = clwe::pack_polynomial_vector_ml_dsa(s2, params_.modulus, 10);
-    std::vector<uint8_t> secret_data = s1_data;
-    secret_data.insert(secret_data.end(), s2_data.begin(), s2_data.end());
+    // Use color encoding for internal storage
+    auto public_data = pack_polynomial_data(t);
+    std::vector<std::vector<uint32_t>> secret_polys = s1;
+    secret_polys.insert(secret_polys.end(), s2.begin(), s2.end());
+    std::vector<uint8_t> secret_data = encode_polynomial_vector_as_colors(secret_polys);
 
-    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
-    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
+    // Create keys with color encoding
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, false};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, false};
 
     return {public_key_struct, private_key_struct};
 }
@@ -210,14 +232,48 @@ std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_key
 
     auto tr = compute_tr(t, rho, K);
 
-    auto public_data = clwe::pack_polynomial_vector_ml_dsa(t, params_.modulus, 10);
-    auto s1_data = clwe::pack_polynomial_vector_ml_dsa(s1, params_.modulus, 10);
-    auto s2_data = clwe::pack_polynomial_vector_ml_dsa(s2, params_.modulus, 10);
-    std::vector<uint8_t> secret_data = s1_data;
-    secret_data.insert(secret_data.end(), s2_data.begin(), s2_data.end());
+    auto public_data = pack_polynomial_data(t);
+    std::vector<std::vector<uint32_t>> secret_polys = s1;
+    secret_polys.insert(secret_polys.end(), s2.begin(), s2.end());
+    std::vector<uint8_t> secret_data = encode_polynomial_vector_as_colors(secret_polys);
 
-    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, true};
-    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, true};
+    // Create keys with color encoding
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, false};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, false};
+
+    return {public_key_struct, private_key_struct};
+}
+
+// Optimized key generation with advanced compression and color integration
+std::pair<ColorSignPublicKey, ColorSignPrivateKey> ColorSignKeyGen::generate_keypair_optimized() {
+    // Generate random rho and K
+    std::array<uint8_t, 32> rho;
+    secure_random_bytes(rho.data(), rho.size());
+    std::array<uint8_t, 32> K;
+    secure_random_bytes(K.data(), K.size());
+
+    // Generate matrix A
+    auto matrix_A = generate_matrix_A(rho);
+
+    // Sample secret keys s1 and s2
+    auto s1 = sample_s1(K);
+    auto s2 = sample_s2(K);
+
+    // Compute t = A * s1 + s2
+    auto t = compute_t(matrix_A, s1, s2);
+
+    // Compute tr
+    auto tr = compute_tr(t, rho, K);
+
+    // Use color encoding for internal storage
+    auto public_data = pack_polynomial_data(t);
+    std::vector<std::vector<uint32_t>> secret_polys = s1;
+    secret_polys.insert(secret_polys.end(), s2.begin(), s2.end());
+    std::vector<uint8_t> secret_data = encode_polynomial_vector_as_colors(secret_polys);
+
+    // Create keys with color encoding
+    ColorSignPublicKey public_key_struct{rho, K, tr, public_data, params_, false};
+    ColorSignPrivateKey private_key_struct{rho, K, tr, secret_data, params_, false};
 
     return {public_key_struct, private_key_struct};
 }

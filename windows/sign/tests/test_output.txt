@@ -1,9 +1,0 @@
-========================================
-ColorSign Comprehensive Test Suite
-========================================
-
-Building tests...
-
-Running test suites...
-----------------------
-Running Parameters Tests... [0;32mPASSED[0m

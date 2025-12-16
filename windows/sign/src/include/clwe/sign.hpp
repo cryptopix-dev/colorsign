@@ -84,11 +84,11 @@ private:
                                    uint32_t gamma2) const;
     std::vector<uint8_t> pack_challenge(const std::vector<uint32_t>& c) const;
     std::vector<std::vector<uint32_t>> generate_matrix_A(const std::array<uint8_t, 32>& seed) const;
-    std::vector<std::vector<uint32_t>> extract_s1_from_private_key(const std::vector<uint8_t>& secret_data) const;
+    std::vector<std::vector<uint32_t>> extract_s1_from_private_key(const ColorSignPrivateKey& private_key) const;
     std::vector<std::vector<uint32_t>> compute_w_prime_for_hint(const std::vector<std::vector<uint32_t>>& w,
                                                                 const std::vector<uint32_t>& c,
                                                                 const std::vector<std::vector<uint32_t>>& s2) const;
-    std::vector<std::vector<uint32_t>> extract_s2_from_private_key(const std::vector<uint8_t>& secret_data) const;
+    std::vector<std::vector<uint32_t>> extract_s2_from_private_key(const ColorSignPrivateKey& private_key) const;
 
 public:
     ColorSign(const CLWEParameters& params, std::unique_ptr<SecurityMonitor> monitor = nullptr);

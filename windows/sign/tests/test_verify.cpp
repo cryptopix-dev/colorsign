@@ -111,6 +111,14 @@ TEST_F(VerifyTest, VerifyLargeMessage) {
     EXPECT_TRUE(verifier->verify_signature(public_key, signature, large_message));
 }
 
+TEST_F(VerifyTest, VerifyMessageTooLarge) {
+    std::vector<uint8_t> too_large_message(1024 * 1024 + 1, 'X');
+    std::vector<uint8_t> empty_c((params.degree + 3) / 4, 0);
+    clwe::ColorSignature dummy_signature{{}, {}, empty_c, params};
+
+    EXPECT_THROW(verifier->verify_signature(public_key, dummy_signature, too_large_message), std::invalid_argument);
+}
+
 TEST_F(VerifyTest, VerifyWithDifferentSecurityLevels) {
     std::vector<uint8_t> message = {'s', 'e', 'c', 'u', 'r', 'i', 't', 'y'};
 

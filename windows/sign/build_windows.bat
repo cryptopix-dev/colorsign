@@ -29,6 +29,8 @@ REM Set compiler environment variables for CMake
 set "CC=C:/ProgramData/mingw64/mingw64/bin/gcc.exe"
 set "CXX=C:/ProgramData/mingw64/mingw64/bin/g++.exe"
 set "PATH=C:/ProgramData/mingw64/mingw64/bin;%PATH%"
+set "PKG_CONFIG_EXECUTABLE=C:/msys64/usr/bin/pkg-config.exe"
+set "PKG_CONFIG_PATH=C:/msys64/mingw64/lib/pkgconfig;%PKG_CONFIG_PATH%"
 set "OPENSSL_ROOT_DIR=C:/ProgramData/mingw64/mingw64/opt"
 
 REM Export environment variables for subprocesses
@@ -49,7 +51,7 @@ cd build
 
 REM Run CMake
 echo Configuring project with CMake...
-cmake .. -G "MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE="mingw-toolchain.cmake"
+cmake .. -G "MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE="mingw-toolchain.cmake" -DPKG_CONFIG_EXECUTABLE="C:/msys64/usr/bin/pkg-config.exe"
 if %errorlevel% neq 0 (
     echo CMake configuration failed.
     exit /b 1

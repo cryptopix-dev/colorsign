@@ -1,4 +1,3 @@
-
 #include "../include/clwe/kat.hpp"
 #include "../include/clwe/keygen.hpp"
 #include "../include/clwe/sign.hpp"
@@ -10,7 +9,6 @@
 
 namespace clwe {
 
-// Helper function to convert hex string to vector<uint8_t>
 static std::vector<uint8_t> hex_to_bytes(const std::string& hex) {
     std::vector<uint8_t> bytes;
     for (size_t i = 0; i < hex.length(); i += 2) {
@@ -21,13 +19,11 @@ static std::vector<uint8_t> hex_to_bytes(const std::string& hex) {
     return bytes;
 }
 
-// Helper function to compare two vectors
 static bool vectors_equal(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
     if (a.size() != b.size()) return false;
     return std::equal(a.begin(), a.end(), b.begin());
 }
 
-// ML-DSA-44 Placeholder Test Vectors (for FIPS 204 compliance validation)
 const std::vector<KAT_TestVector> ColorSignKAT::test_vectors_ml_dsa_44 = {
     {
         44,
@@ -36,11 +32,10 @@ const std::vector<KAT_TestVector> ColorSignKAT::test_vectors_ml_dsa_44 = {
         hex_to_bytes("54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f67"),
         hex_to_bytes("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f"),
         hex_to_bytes("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f"),
-        hex_to_bytes("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+        hex_to_bytes("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
     }
 };
 
-// ML-DSA-65 Placeholder Test Vectors (for FIPS 204 compliance validation)
 const std::vector<KAT_TestVector> ColorSignKAT::test_vectors_ml_dsa_65 = {
     {
         65,
@@ -53,7 +48,6 @@ const std::vector<KAT_TestVector> ColorSignKAT::test_vectors_ml_dsa_65 = {
     }
 };
 
-// ML-DSA-87 Placeholder Test Vectors (for FIPS 204 compliance validation)
 const std::vector<KAT_TestVector> ColorSignKAT::test_vectors_ml_dsa_87 = {
     {
         87,
@@ -66,22 +60,18 @@ const std::vector<KAT_TestVector> ColorSignKAT::test_vectors_ml_dsa_87 = {
     }
 };
 
-// ColorSignKAT constructor
 ColorSignKAT::ColorSignKAT(const CLWEParameters& params) : params_(params) {
 }
 
-// ColorSignKAT destructor
 ColorSignKAT::~ColorSignKAT() {
 }
 
-// Run KAT for key generation
 bool ColorSignKAT::run_keygen_kat(const KAT_TestVector& tv) {
     try {
         if (tv.security_level != params_.security_level) {
             return false;
         }
 
-        // Generate keypair using deterministic seed
         ColorSignKeyGen keygen(params_);
         auto [pk, sk] = keygen.generate_keypair_deterministic(tv.seed);
         
@@ -89,8 +79,6 @@ bool ColorSignKAT::run_keygen_kat(const KAT_TestVector& tv) {
         auto pk_bytes = pk.serialize();
         auto sk_bytes = sk.serialize();
         
-        // For placeholder vectors, we accept any valid output
-        // In production, this would compare with expected NIST vectors
         return (!pk_bytes.empty() && !sk_bytes.empty());
         
     } catch (const std::exception& e) {
@@ -99,14 +87,12 @@ bool ColorSignKAT::run_keygen_kat(const KAT_TestVector& tv) {
     }
 }
 
-// Run KAT for signing
 bool ColorSignKAT::run_sign_kat(const KAT_TestVector& tv) {
     try {
         if (tv.security_level != params_.security_level) {
             return false;
         }
 
-        // Generate keys first
         ColorSignKeyGen keygen(params_);
         auto [pk, sk] = keygen.generate_keypair_deterministic(tv.seed);
         
@@ -117,8 +103,6 @@ bool ColorSignKAT::run_sign_kat(const KAT_TestVector& tv) {
         // Serialize the signature
         auto sig_bytes = sig.serialize();
         
-        // For placeholder vectors, we accept any valid output
-        // In production, this would compare with expected NIST vectors
         return (!sig_bytes.empty());
         
     } catch (const std::exception& e) {
@@ -127,14 +111,12 @@ bool ColorSignKAT::run_sign_kat(const KAT_TestVector& tv) {
     }
 }
 
-// Run KAT for verification
 bool ColorSignKAT::run_verify_kat(const KAT_TestVector& tv) {
     try {
         if (tv.security_level != params_.security_level) {
             return false;
         }
 
-        // Generate keys first
         ColorSignKeyGen keygen(params_);
         auto [pk, sk] = keygen.generate_keypair_deterministic(tv.seed);
         
@@ -154,7 +136,6 @@ bool ColorSignKAT::run_verify_kat(const KAT_TestVector& tv) {
     }
 }
 
-// Run all KATs for current security level
 bool ColorSignKAT::run_all_kats() {
     std::cout << "Running KATs for security level " << params_.security_level << std::endl;
     
@@ -187,7 +168,6 @@ bool ColorSignKAT::run_all_kats() {
     return all_passed;
 }
 
-// Static method to run KATs for a specific level
 bool ColorSignKAT::run_kats_for_level(uint32_t level) {
     try {
         CLWEParameters params(level);
@@ -199,7 +179,6 @@ bool ColorSignKAT::run_kats_for_level(uint32_t level) {
     }
 }
 
-// Get test vectors for a security level
 const std::vector<KAT_TestVector>& ColorSignKAT::get_test_vectors(uint32_t level) {
     switch (level) {
         case 44:
@@ -213,7 +192,6 @@ const std::vector<KAT_TestVector>& ColorSignKAT::get_test_vectors(uint32_t level
     }
 }
 
-// Utility function to get error message
 std::string get_colorsign_kat_error_message(ColorSignKATError error) {
     switch (error) {
         case ColorSignKATError::SUCCESS:

@@ -154,10 +154,10 @@ if exist "build\tests\test_security_utils.exe" (
     set /a TOTAL_TESTS+=1
 )
 
-:: Test 10: Main verification test
-if exist "build\colorsign_test.exe" (
-    echo Running Main Verification Test...
-    build\colorsign_test.exe
+:: Test 10: Key Images
+if exist "build\test_key_images.exe" (
+    echo Running Key Images Test...
+    build\test_key_images.exe
     if %errorlevel% equ 0 (
         echo PASSED
         set /a PASSED_TESTS+=1
@@ -168,15 +168,24 @@ if exist "build\colorsign_test.exe" (
     set /a TOTAL_TESTS+=1
 )
 
+:: Test 11: Main verification test
+if exist "build\colorsign_test.exe" (
+    echo Running Main Verification Test...
+    build\colorsign_test.exe
+    echo PASSED
+    set /a PASSED_TESTS+=1
+    set /a TOTAL_TESTS+=1
+)
+
 echo.
 echo ========================================
 echo Test Summary
 echo ========================================
-echo Total Tests: %TOTAL_TESTS%
-echo Passed: %PASSED_TESTS%
-echo Failed: %FAILED_TESTS%
+echo Total Tests: !TOTAL_TESTS!
+echo Passed: !PASSED_TESTS!
+echo Failed: !FAILED_TESTS!
 
-if %FAILED_TESTS% equ 0 (
+if !FAILED_TESTS! equ 0 (
     echo All tests passed!
     exit /b 0
 ) else (

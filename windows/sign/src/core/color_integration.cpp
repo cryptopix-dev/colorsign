@@ -378,18 +378,9 @@ std::vector<std::vector<uint32_t>> decode_polynomial_vector_with_color_integrati
         uint32_t n = 1; // Default, will be adjusted
 
         // Try to determine dimensions from data size
-        if (color_integrated_data.size() % 4 == 0) {
-            // Standard color format: 4 bytes per coefficient
-            n = color_integrated_data.size() / 4;
-            return decode_colors_to_polynomial_vector(color_integrated_data, 1, n, modulus);
-        } else {
-            // Compressed color format - try to decode
-            try {
-                return decode_colors_to_polynomial_vector_compressed(color_integrated_data, 1, n, modulus);
-            } catch (const std::exception&) {
-                throw std::invalid_argument("Invalid color-integrated data format");
-            }
-        }
+        // Standard color format: 1 byte per coefficient
+        n = color_integrated_data.size();
+        return decode_colors_to_polynomial_vector(color_integrated_data, 1, n, modulus);
     }
 }
 

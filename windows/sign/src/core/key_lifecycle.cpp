@@ -142,13 +142,23 @@ bool KeyLifecycleImpl::perform_key_operation(KeyType key_type, const std::vector
 }
 
 bool KeyLifecycleImpl::perform_ecdsa_operation(const std::vector<uint8_t>& key_data, const std::string& operation,
-                                              const std::vector<uint8_t>& input, std::vector<uint8_t>& output) const {
-    // For ECDSA, we need to use SecKey API. For simplicity, implement basic signing using HMAC as placeholder
-    // In production, use proper ECDSA with SecKey
+                                               const std::vector<uint8_t>& input, std::vector<uint8_t>& output) const {
+    // CRITICAL: This is a placeholder implementation for ECDSA operations
+    // TODO: Implement proper ECDSA using SecKey API for production use
+    // Current implementation uses HMAC which is cryptographically incorrect
+
     if (operation == "sign") {
-        output.resize(32);
-        CCHmac(kCCHmacAlgSHA256, key_data.data(), key_data.size(), input.data(), input.size(), output.data());
-        return true;
+        // Validate input parameters
+        if (key_data.size() < 32 || input.empty()) {
+            return false;
+        }
+
+        // TODO: Replace with proper SecKey ECDSA implementation
+        // For now, return false to indicate operation not supported
+        return false;
+    } else if (operation == "verify") {
+        // TODO: Implement proper ECDSA verification
+        return false;
     }
     return false;
 }

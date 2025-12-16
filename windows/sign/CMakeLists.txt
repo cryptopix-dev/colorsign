@@ -25,9 +25,25 @@ set(OPENSSL_USE_STATIC_LIBS TRUE)
 # Find OpenSSL - should work with MinGW's built-in version
 find_package(OpenSSL REQUIRED)
 
+# Find WebP manually
+find_path(WEBP_INCLUDE_DIR webp/types.h PATHS C:/ProgramData/mingw64/mingw64/include C:/msys64/mingw64/include)
+find_library(WEBP_LIBRARY webp PATHS C:/ProgramData/mingw64/mingw64/lib C:/msys64/mingw64/lib)
+find_library(WEBPDEMUX_LIBRARY webpdemux PATHS C:/ProgramData/mingw64/mingw64/lib C:/msys64/mingw64/lib)
+find_library(WEBPMUX_LIBRARY webpmux PATHS C:/ProgramData/mingw64/mingw64/lib C:/msys64/mingw64/lib)
+
+if(WEBP_INCLUDE_DIR AND WEBP_LIBRARY)
+    set(WEBP_FOUND TRUE)
+    set(WEBP_LIBRARIES ${WEBP_LIBRARY} ${WEBPDEMUX_LIBRARY} ${WEBPMUX_LIBRARY})
+else()
+    set(WEBP_FOUND FALSE)
+endif()
+
 # Add OpenSSL include directories explicitly for Windows
 if(WIN32)
     include_directories(${OPENSSL_INCLUDE_DIR})
+    if(WEBP_FOUND)
+        include_directories(${WEBP_INCLUDE_DIR})
+    endif()
 endif()
 
 # Google Test - Use system MinGW version if available, otherwise download
@@ -72,6 +88,9 @@ add_library(colorsign STATIC
 )
 
 target_link_libraries(colorsign PRIVATE OpenSSL::Crypto)
+if(WEBP_FOUND)
+    target_link_libraries(colorsign PRIVATE ${WEBP_LIBRARIES})
+endif()
 
 # Windows Cryptography API for secure random
 if(WIN32)
@@ -97,6 +116,16 @@ target_link_libraries(generate_kat_vectors PRIVATE colorsign)
 # All KAT vectors generator executable
 add_executable(generate_all_kat_vectors generate_all_kat_vectors.cpp)
 target_link_libraries(generate_all_kat_vectors PRIVATE colorsign)
+
+if(WEBP_FOUND)
+    # Key image generator executable
+    add_executable(generate_key_images generate_key_images.cpp)
+    target_link_libraries(generate_key_images PRIVATE colorsign)
+
+    # Key image test executable
+    add_executable(test_key_images test_key_images.cpp)
+    target_link_libraries(test_key_images PRIVATE colorsign)
+endif()
 
 # Tests
 enable_testing()

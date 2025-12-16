@@ -128,6 +128,12 @@ TEST_F(SignTest, SignLargeMessage) {
     });
 }
 
+TEST_F(SignTest, SignMessageTooLarge) {
+    std::vector<uint8_t> too_large_message(1024 * 1024 + 1, 'A');  // >1MB
+
+    EXPECT_THROW(signer->sign_message(too_large_message, private_key, public_key), std::invalid_argument);
+}
+
 
 TEST_F(SignTest, ErrorMessageUtility) {
     EXPECT_EQ(clwe::get_colorsign_sign_error_message(clwe::ColorSignSignError::SUCCESS), "Success");
@@ -143,8 +149,8 @@ TEST_F(SignTest, SignatureStructureValidation) {
 
     clwe::ColorSignature signature = signer->sign_message(message, private_key, public_key);
 
-    // Check signature structure - using standard ML-DSA packing
-    // For ML-DSA-44: k=4, n=256, each coefficient packed as 4 bytes (little-endian)
+    // Check signature structure - using 32-bit uncompressed packing
+    // For ML-DSA-44: k=4, n=256, each coefficient packed as 4 bytes
     uint32_t expected_z_size = params.module_rank * params.degree * 4; // 4 bytes per coefficient
     EXPECT_EQ(signature.z_data.size(), expected_z_size);
 

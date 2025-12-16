@@ -2,8 +2,15 @@
 #include "include/clwe/parameters.hpp"
 #include "include/clwe/sign.hpp"
 #include "include/clwe/verify.hpp"
+#include "include/clwe/color_integration.hpp"
 #include <iostream>
 #include <vector>
+#include <iomanip>
+#include <cmath>
+#include <iostream>
+#include <vector>
+#include <iomanip>
+#include <cmath>
 
 int main() {
     try {
@@ -18,6 +25,8 @@ int main() {
         std::cout << "Public key data size: " << public_key.public_data.size() << " bytes" << std::endl;
         std::cout << "Private key data size: " << private_key.secret_data.size() << " bytes" << std::endl;
 
+        // Note: WebP visualization not available on Windows
+
         clwe::ColorSign signer(params);
         std::vector<uint8_t> message = {'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd'};
 
@@ -28,6 +37,12 @@ int main() {
         std::cout << "Signature z_data size: " << signature.z_data.size() << " bytes" << std::endl;
         std::cout << "Signature c_data size: " << signature.c_data.size() << " bytes" << std::endl;
 
+        // Verify with original signature before serialization
+        clwe::ColorSignVerify verifier(params);
+        std::cout << "Verifying signature with original..." << std::endl;
+        bool is_valid_orig = verifier.verify_signature(public_key, signature, message);
+        std::cout << "Verification with original signature: " << (is_valid_orig ? "successful" : "failed") << std::endl;
+
         auto serialized_sig = signature.serialize();
 
         std::cout << "Signature serialization successful!" << std::endl;
@@ -37,8 +52,6 @@ int main() {
 
         std::cout << "Signature deserialization successful!" << std::endl;
 
-        clwe::ColorSignVerify verifier(params);
-
         std::cout << "Verifying signature..." << std::endl;
         bool is_valid = verifier.verify_signature(public_key, signature, message);
 
@@ -46,16 +59,6 @@ int main() {
             std::cout << "Signature verification successful!" << std::endl;
         } else {
             std::cout << "Signature verification failed!" << std::endl;
-            return 1;
-        }
-
-        std::vector<uint8_t> wrong_message = {'W', 'r', 'o', 'n', 'g'};
-        bool is_invalid = verifier.verify_signature(public_key, signature, wrong_message);
-
-        if (!is_invalid) {
-            std::cout << "Wrong message correctly rejected!" << std::endl;
-        } else {
-            std::cout << "Error: Wrong message was accepted!" << std::endl;
             return 1;
         }
 

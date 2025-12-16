@@ -20,7 +20,7 @@ private:
 
     // Helper methods
     std::vector<std::vector<uint32_t>> generate_matrix_A(const std::array<uint8_t, 32>& seed) const;
-    std::vector<std::vector<uint32_t>> extract_t_from_public_key(const std::vector<uint8_t>& public_data) const;
+    std::vector<std::vector<uint32_t>> extract_t_from_public_key(const ColorSignPublicKey& public_key) const;
     std::vector<std::vector<uint32_t>> compute_w_prime_fixed(const std::vector<std::vector<uint32_t>>& matrix_A,
                                                              const std::vector<std::vector<uint32_t>>& z,
                                                              const std::vector<uint8_t>& c_hash,
@@ -59,11 +59,11 @@ private:
     bool validate_mathematical_consistency(const ColorSignPublicKey& public_key,
                                            const ColorSignature& signature,
                                            const std::vector<std::vector<uint32_t>>& w_prime) const;
-    bool validate_challenge_match(const std::vector<std::vector<uint32_t>>& w_prime,
+    bool validate_challenge_match(const std::vector<std::vector<uint32_t>>& w,
                                   const ColorSignature& signature,
                                   const std::vector<uint8_t>& message,
                                   const std::vector<uint8_t>& context) const;
-    std::vector<uint8_t> encode_w_prime_for_challenge(const std::vector<std::vector<uint32_t>>& w_prime) const;
+    std::vector<uint8_t> encode_w_for_challenge(const std::vector<std::vector<uint32_t>>& w) const;
     std::vector<uint8_t> pack_challenge(const std::vector<uint32_t>& c) const;
 
 public:

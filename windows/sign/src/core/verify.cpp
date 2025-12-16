@@ -57,8 +57,8 @@ bool ColorSignVerify::verify_signature_basic(const ColorSignPublicKey& public_ke
                                              const ColorSignature& signature,
                                              const std::vector<uint8_t>& message,
                                              const std::vector<uint8_t>& context) const {
-    // Decode z from signature using 18-bit encoding
-    std::vector<std::vector<uint32_t>> z = unpack_polynomial_vector_ml_dsa(signature.z_data, params_.module_rank, params_.degree, params_.modulus, 18);
+    // Decode z from signature using uncompressed 32-bit unpacking
+    std::vector<std::vector<uint32_t>> z = unpack_polynomial_vector(signature.z_data, params_.module_rank, params_.degree);
 
     // Check z bounds: ||z||_∞ < γ₁ - β
     if (!check_z_bounds(z)) {
@@ -69,16 +69,18 @@ bool ColorSignVerify::verify_signature_basic(const ColorSignPublicKey& public_ke
     auto matrix_A = generate_matrix_A(public_key.seed_rho);
 
     // Extract t from public key
-    auto t = extract_t_from_public_key(public_key.public_data);
+    auto t = extract_t_from_public_key(public_key);
 
     // Compute w' = A*z - c*t using the ML-DSA formula
     auto w_prime = compute_w_prime_fixed(matrix_A, z, signature.c_data, t);
 
-    // CRITICAL: Perform cryptographic validation - compare challenge
-    bool result = validate_challenge_match(w_prime, signature, message, context);
-
-    // Apply hints to check w bounds
+    // Apply hints to get w
     std::vector<std::vector<uint32_t>> w = use_hint(signature.h_data, w_prime, params_.gamma2);
+
+    // CRITICAL: Perform cryptographic validation - compare challenge
+    bool result = validate_challenge_match(w, signature, message, context);
+
+    // Check w bounds
     if (!check_w_bounds(w)) {
         return false;
     }
@@ -87,16 +89,22 @@ bool ColorSignVerify::verify_signature_basic(const ColorSignPublicKey& public_ke
 }
 
 // Validate that computed challenge matches original challenge for cryptographic integrity
-bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uint32_t>>& w_prime,
+bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uint32_t>>& w,
                                               const ColorSignature& signature,
                                               const std::vector<uint8_t>& message,
                                               const std::vector<uint8_t>& context) const {
     try {
         // Step 1: Compute mu (hash of message) - exactly like in signing
         std::vector<uint8_t> mu = hash_message(message, context);
+        std::cout << "Verification mu: ";
+        for (auto b : mu) std::cout << std::hex << (int)b << " ";
+        std::cout << std::dec << std::endl;
 
-        // Step 2: Compute w1' (high bits of w') for challenge computation (exactly like signing)
-        std::vector<uint8_t> w1_encoded = encode_w_prime_for_challenge(w_prime);
+        // Step 2: Compute w1 (high bits of w) for challenge computation (exactly like signing)
+        std::vector<uint8_t> w1_encoded = encode_w_for_challenge(w);
+        std::cout << "Verification w1_encoded first 10: ";
+        for (size_t i = 0; i < std::min(size_t(10), w1_encoded.size()); ++i) std::cout << std::hex << (int)w1_encoded[i] << " ";
+        std::cout << std::dec << std::endl;
         
         // Step 3: Create challenge seed (mu || w1_encoded) - exactly like in signing
         std::vector<uint8_t> challenge_seed = mu;
@@ -108,6 +116,9 @@ bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uin
         
         // Step 5: Pack computed challenge and compare with signature c_data
         std::vector<uint8_t> computed_c_packed = pack_challenge(computed_c);
+        std::cout << "Verification computed_c_packed: ";
+        for (auto b : computed_c_packed) std::cout << std::hex << (int)b << " ";
+        std::cout << std::dec << std::endl;
 
         // Step 7: CRITICAL SECURITY CHECK - compare packed challenges
         if (computed_c_packed.size() != signature.c_data.size()) {
@@ -123,6 +134,16 @@ bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uin
             }
         }
 
+        // Debug logs
+        std::cout << "Computed c_packed size: " << computed_c_packed.size() << ", signature c_data size: " << signature.c_data.size() << std::endl;
+        if (!challenges_match) {
+            std::cout << "Challenge mismatch! Computed: ";
+            for (auto b : computed_c_packed) std::cout << std::hex << (int)b << " ";
+            std::cout << std::endl << "Signature: ";
+            for (auto b : signature.c_data) std::cout << std::hex << (int)b << " ";
+            std::cout << std::dec << std::endl;
+        }
+
         return challenges_match;
         
     } catch (const std::exception& e) {
@@ -130,15 +151,15 @@ bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uin
     }
 }
 
-// Helper function to encode w' for challenge computation (matching signing process)
-std::vector<uint8_t> ColorSignVerify::encode_w_prime_for_challenge(const std::vector<std::vector<uint32_t>>& w_prime) const {
+// Helper function to encode w for challenge computation (matching signing process)
+std::vector<uint8_t> ColorSignVerify::encode_w_for_challenge(const std::vector<std::vector<uint32_t>>& w) const {
     uint32_t k = params_.module_rank;
     uint32_t n = params_.degree;
     uint32_t q = params_.modulus;
     
-    // Step 1: Flatten w_prime to match signing process
+    // Step 1: Flatten w to match signing process
     std::vector<uint32_t> w_flat;
-    for (const auto& poly : w_prime) {
+    for (const auto& poly : w) {
         w_flat.insert(w_flat.end(), poly.begin(), poly.end());
     }
     
@@ -266,7 +287,7 @@ bool ColorSignVerify::validate_cryptographic_integrity_final(const ColorSignPubl
 
     // Validate z data can be decoded and re-encoded consistently
     try {
-        std::vector<std::vector<uint32_t>> z_decoded = unpack_polynomial_vector_ml_dsa(signature.z_data, params_.module_rank, params_.degree, params_.modulus, 18);
+        std::vector<std::vector<uint32_t>> z_decoded = unpack_polynomial_vector(signature.z_data, params_.module_rank, params_.degree);
         
         // Basic sanity check on decoded data
         if (z_decoded.size() != params_.module_rank) {
@@ -357,9 +378,18 @@ std::vector<std::vector<uint32_t>> ColorSignVerify::generate_matrix_A(const std:
 }
 
 // Extract t from public key
-std::vector<std::vector<uint32_t>> ColorSignVerify::extract_t_from_public_key(const std::vector<uint8_t>& public_data) const {
-    // Public key contains t vector encoded as RGB colors (k polynomials)
-    return clwe::decode_colors_to_polynomial_vector(public_data, params_.module_rank, params_.degree, params_.modulus);
+std::vector<std::vector<uint32_t>> ColorSignVerify::extract_t_from_public_key(const ColorSignPublicKey& public_key) const {
+    if (public_key.use_compression) {
+        auto t = clwe::unpack_polynomial_vector_ml_dsa(public_key.public_data, params_.module_rank, params_.degree, params_.modulus, 12);
+        if (!t.empty() && !t[0].empty()) {
+            std::cout << "DEBUG: t[0] first 5 coeffs: ";
+            for (size_t i = 0; i < std::min(size_t(5), t[0].size()); ++i) std::cout << t[0][i] << " ";
+            std::cout << std::endl;
+        }
+        return t;
+    } else {
+        return clwe::decode_colors_to_polynomial_vector(public_key.public_data, params_.module_rank, params_.degree, params_.modulus);
+    }
 }
 
 // Unpack challenge polynomial from c_hash
@@ -517,12 +547,8 @@ std::vector<std::vector<uint32_t>> ColorSignVerify::use_hint(const std::vector<u
                 bool hint_bit = (h[byte_idx] & (1 << bit_pos)) != 0;
 
                 if (hint_bit) {
-                    // Adjust z by -2^d
-                    if (z[i][j] >= (1U << d)) {
-                        z_decompressed[i][j] = z[i][j] - (1U << d);
-                    } else {
-                        z_decompressed[i][j] = z[i][j] + q - (1U << d);
-                    }
+                    // Adjust by +2^d mod q
+                    z_decompressed[i][j] = (z[i][j] + (1U << d)) % q;
                 }
             }
             hint_index++;

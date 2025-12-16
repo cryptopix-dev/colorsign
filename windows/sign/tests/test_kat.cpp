@@ -237,11 +237,8 @@ TEST_F(KATTest, MLDSA44_KAT) {
     EXPECT_EQ(private_key.serialize(), private_key2.serialize());
 
     // Verify that the generated keys have the correct structure and sizes
-    // Color-encoded keys are larger due to RGB format (3 bytes per coefficient)
-    EXPECT_GT(public_key.serialize().size(), 2000);
-    EXPECT_LT(public_key.serialize().size(), 3000);
-    EXPECT_GT(private_key.serialize().size(), 4000);
-    EXPECT_LT(private_key.serialize().size(), 6000);
+    EXPECT_EQ(public_key.serialize().size(), 1154);
+    EXPECT_EQ(private_key.serialize().size(), 2178);
 
     // Verify that the keys can be used for signing and verification
     ColorSign signer(params);
@@ -280,13 +277,8 @@ TEST_F(KATTest, MLDSA65_KAT) {
     EXPECT_EQ(private_key.serialize(), private_key2.serialize());
 
     // Verify key sizes are appropriate for security level 65 (color-encoded)
-    // Color encoding uses RGB format (3 bytes per coefficient)
-    // public: rho(32) + K(32) + tr(64) + color_data(k*n*3)
-    // private: rho(32) + K(32) + tr(64) + color_data(2*k*n*3)
-    size_t expected_public_size = 32 + 32 + 64 + (65 * 256 * 3); // 32+32+64+49920 = 50048
-    size_t expected_private_size = 32 + 32 + 64 + (130 * 256 * 3); // 32+32+64+99840 = 99968
-    EXPECT_EQ(public_key.serialize().size(), expected_public_size);
-    EXPECT_EQ(private_key.serialize().size(), expected_private_size);
+    EXPECT_EQ(public_key.serialize().size(), 1666);
+    EXPECT_EQ(private_key.serialize().size(), 3202);
 
     // Verify cryptographic operations work correctly
     ColorSign signer(params);
@@ -324,13 +316,8 @@ TEST_F(KATTest, MLDSA87_KAT) {
     EXPECT_EQ(private_key.serialize(), private_key2.serialize());
 
     // Verify key sizes are appropriate for security level 87 (color-encoded)
-    // Color encoding uses RGB format (3 bytes per coefficient)
-    // public: rho(32) + K(32) + tr(64) + color_data(k*n*3)
-    // private: rho(32) + K(32) + tr(64) + color_data(2*k*n*3)
-    size_t expected_public_size = 32 + 32 + 64 + (87 * 256 * 3); // 32+32+64+66816 = 66944
-    size_t expected_private_size = 32 + 32 + 64 + (174 * 256 * 3); // 32+32+64+133632 = 133760
-    EXPECT_EQ(public_key.serialize().size(), expected_public_size);
-    EXPECT_EQ(private_key.serialize().size(), expected_private_size);
+    EXPECT_EQ(public_key.serialize().size(), 2178);
+    EXPECT_EQ(private_key.serialize().size(), 4226);
 
     // Verify cryptographic operations work correctly
     ColorSign signer(params);

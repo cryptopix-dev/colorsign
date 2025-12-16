@@ -18,18 +18,120 @@ ColorSign is a high-performance, production-ready implementation of the Module-L
 - **Windows Native**: Optimized for Windows with MinGW/GCC support
 - **Comprehensive Testing**: Full test suite with Known Answer Tests (KAT) vectors
 
+## 🎨 Pixel-Based Key Functionality
+
+ColorSign introduces an innovative **pixel-based key encoding system** that transforms cryptographic polynomials into visual RGB pixel representations. This feature provides enhanced security through novel encoding techniques while enabling unique visualization and storage capabilities.
+
+### How It Works
+
+The pixel-based system encodes polynomial coefficients into RGB color data where each pixel represents up to three coefficients:
+
+- **Encoding Process**: Polynomial coefficients are reduced modulo the cryptographic modulus and packed into RGB channels (R, G, B)
+- **Pixel Structure**: Each 8-bit color channel stores one coefficient value (0-255)
+- **Visualization**: Keys can be rendered as images for debugging, education, or steganographic purposes
+
+### Key Benefits
+
+- **Enhanced Security**: Novel encoding provides additional obfuscation layer
+- **Visual Debugging**: Keys can be visualized as images for cryptographic analysis
+- **Compact Storage**: Efficient representation of large polynomial vectors
+- **Steganography**: Potential for hiding cryptographic data in images
+- **Cross-Platform Compatibility**: Works across all supported platforms (macOS, Windows, Linux)
+
+### Technical Details
+
+#### Basic Encoding
+```cpp
+// Encode a polynomial into RGB color data
+std::vector<uint8_t> color_data = encode_polynomial_as_colors(polynomial, modulus);
+
+// Each coefficient becomes a pixel channel value
+// coefficient % modulus -> 8-bit color value (0-255)
+```
+
+#### Vector Encoding
+```cpp
+// Encode multiple polynomials (key components)
+std::vector<uint8_t> color_key = encode_polynomial_vector_as_colors(poly_vector, modulus);
+
+// Supports automatic compression for sparse polynomials
+std::vector<uint8_t> compressed = encode_polynomial_vector_as_colors_auto(poly_vector, modulus);
+```
+
+#### Decoding Back to Polynomials
+```cpp
+// Decode RGB data back to polynomial coefficients
+std::vector<uint32_t> polynomial = decode_colors_to_polynomial(color_data, modulus);
+
+// Decode multiple polynomials from color data
+std::vector<std::vector<uint32_t>> poly_vector =
+    decode_colors_to_polynomial_vector(color_data, k, n, modulus);
+```
+
+### Advanced Features
+
+#### Compression Integration
+- **Variable-Length Encoding**: Efficient storage for sparse polynomials
+- **Huffman Coding**: Adaptive compression for optimal space usage
+- **Dual-Format Support**: Simultaneous cryptographic and visual representations
+
+#### On-Demand Color Generation
+```cpp
+// Enable on-demand color generation for compressed keys
+std::vector<uint8_t> dual_format = encode_polynomial_vector_with_color_integration(
+    poly_vector, modulus, true /* enable_on_demand_color */
+);
+
+// Generate color representation from compressed data
+std::vector<uint8_t> color_image = generate_color_from_dual_format(dual_format);
+```
+
+### Usage in Key Generation
+
+The pixel-based encoding is integrated into ColorSign's key generation process:
+
+```cpp
+// Keys are stored using color encoding internally
+auto [public_key, private_key] = keygen.generate_keypair();
+
+// Public and private key data contains color-encoded polynomials
+std::vector<uint8_t> public_color_data = public_key.public_data;
+std::vector<uint8_t> private_color_data = private_key.secret_data;
+```
+
+### Visualization Example
+
+Keys can be visualized as images where:
+- **Dark pixels**: Represent low coefficient values (near zero)
+- **Bright pixels**: Represent high coefficient values
+- **Color patterns**: Reflect the mathematical structure of the polynomials
+- **Image dimensions**: Depend on polynomial degree and vector size
+
+### Security Considerations
+
+- **Information Preservation**: Encoding/decoding is lossless for cryptographic operations
+- **No Security Degradation**: Color representation doesn't weaken the underlying cryptography
+- **Additional Obfuscation**: Visual encoding provides secondary protection layer
+- **Format Detection**: Multiple encoding formats supported with automatic detection
+
+### Performance Characteristics
+
+- **Encoding Speed**: Fast conversion with minimal computational overhead
+- **Storage Efficiency**: Variable compression ratios based on polynomial sparsity
+- **Memory Usage**: Compact representation suitable for resource-constrained environments
+- **Platform Optimization**: SIMD-accelerated operations on supported architectures
+
+This pixel-based functionality makes ColorSign unique among post-quantum signature schemes, combining mathematical rigor with innovative visual cryptography techniques.
+
 ## 📋 Table of Contents
 
 - [Installation](#installation)
-- [MinGW Installation](#mingw-installation)
-- [Build Script Documentation](#build-script-documentation)
 - [Quick Start](#quick-start)
 - [API Documentation](#api-documentation)
 - [Usage Examples](#usage-examples)
 - [Testing](#testing)
 - [Windows-Specific Features](#windows-specific-features)
 - [Build Requirements](#build-requirements)
-- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -131,7 +233,7 @@ cd windows/sign
 3. **Build Directory Setup**: Creates a `build/` directory if it doesn't exist
 4. **CMake Configuration**: Configures the project with MinGW toolchain
 5. **Project Building**: Uses CMake to build the configured project
-6. **Verification Testing**: Runs quick verification test if available
+6. **Build Verification**: Runs the main test executable to validate the build
 7. **Status Reporting**: Provides clear output about build completion
 
 #### Expected Output
@@ -153,6 +255,9 @@ Build completed successfully!
 Executables are available in the build/ directory:
   - colorsign_test: Main ColorSign test executable
   - ntt_simd_benchmark: NTT SIMD benchmark tool
+
+Running quick verification test...
+Verification test passed!
 ```
 
 #### Troubleshooting
@@ -419,10 +524,7 @@ ColorSign for Windows includes a comprehensive test suite with **121 individual 
 # Navigate to Windows sign directory
 cd windows/sign
 
-# Build the project first
-.\build_windows.bat
-
-# Run comprehensive test suite
+# Run comprehensive test suite (auto-builds if needed)
 .\run_all_tests.bat
 ```
 
@@ -454,39 +556,39 @@ The test runner automatically:
 
 ```powershell
 # After building, run specific test executables
-.\build\tests\test_parameters.exe
-.\build\tests\test_keygen.exe
-.\build\tests\test_sign.exe
-.\build\tests\test_verify.exe
-.\build\tests\test_color_integration.exe
-.\build\tests\test_utils.exe
-.\build\tests\test_security_utils.exe
-.\build\tests\test_integration.exe
-.\build\tests\test_kat.exe
-.\build\tests\test_stress.exe
+.\build\tests\test_parameters
+.\build\tests\test_keygen
+.\build\tests\test_sign
+.\build\tests\test_verify
+.\build\tests\test_color_integration
+.\build\tests\test_utils
+.\build\tests\test_security_utils
+.\build\tests\test_integration
+.\build\tests\test_kat
+.\build\tests\test_stress
 ```
 
 ### Known Answer Tests (KAT)
 
 ```powershell
 # Generate KAT vectors for compliance testing
-.\build\generate_kat_vectors.exe
+.\build\generate_kat_vectors
 
 # Generate all KAT vectors for all security levels
-.\build\generate_all_kat_vectors.exe
+.\build\generate_all_kat_vectors
 
 # Run comprehensive KAT validation
-.\build\tests\test_kat.exe
+.\build\tests\test_kat
 ```
 
 ### Benchmarking
 
 ```powershell
 # Run performance benchmarks
-.\build\benchmark_color_sign_timing.exe
+.\build\benchmark_color_sign_timing
 
 # SIMD performance test (AVX2/AVX512)
-.\build\ntt_simd_benchmark.exe
+.\build\ntt_simd_benchmark
 ```
 
 ### Test Output Example
@@ -498,17 +600,17 @@ ColorSign Comprehensive Test Suite
 
 Running test suites...
 ----------------------
-Running Parameters Tests... PASSED
-Running Key Generation Tests... PASSED
-Running Sign Tests... PASSED
-Running Verify Tests... PASSED
-Running Color Integration Tests... PASSED
-Running Utils Tests... PASSED
-Running Security Utils Tests... PASSED
-Running Integration Tests... PASSED
-Running KAT Tests... PASSED
-Running Stress Tests... PASSED
-Running Main Verification Test... PASSED
+Running Parameters Tests... ✓ PASSED
+Running Key Generation Tests... ✓ PASSED
+Running Sign Tests... ✓ PASSED
+Running Verify Tests... ✓ PASSED
+Running Color Integration Tests... ✓ PASSED
+Running Utils Tests... ✓ PASSED
+Running Security Utils Tests... ✓ PASSED
+Running Integration Tests... ✓ PASSED
+Running KAT Tests... ✓ PASSED
+Running Stress Tests... ✓ PASSED
+Running Main Verification Test... ✓ PASSED
 
 ========================================
 Test Summary
@@ -516,7 +618,7 @@ Test Summary
 Total Tests: 11
 Passed: 11
 Failed: 0
-All tests passed!
+All tests passed! ✓
 ```
 
 ### Cross-Platform Testing

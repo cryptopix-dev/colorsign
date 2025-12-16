@@ -132,14 +132,30 @@ ColorSignature ColorSign::sign_message(const std::vector<uint8_t>& message,
     }
 
     // Extract s1 and s2 from private key
-    auto s1 = extract_s1_from_private_key(private_key.secret_data);
-    auto s2 = extract_s2_from_private_key(private_key.secret_data);
+    auto s1 = extract_s1_from_private_key(private_key);
+    auto s2 = extract_s2_from_private_key(private_key);
 
     // Generate matrix A from public key seed_rho
     auto matrix_A = generate_matrix_A(public_key.seed_rho);
 
     // Hash message with context: mu = SHAKE256(context || message)
     auto mu = hash_message(message, context);
+    // Log mu for debugging (should be removed in production)
+    if (security_monitor_) {
+        std::string mu_hex;
+        for (auto b : mu) {
+            char hex_str[3];
+            snprintf(hex_str, sizeof(hex_str), "%02X", b);
+            mu_hex += hex_str;
+        }
+        security_monitor_->log_event(AuditEntry{
+            AuditEvent::SIGNING_START,
+            std::chrono::system_clock::now(),
+            "Signing mu: " + mu_hex,
+            "ColorSign::sign_message",
+            0
+        });
+    }
 
     // Generate deterministic rho' for y sampling: rho' = SHAKE256(sk || message)
     std::vector<uint8_t> rho_prime_input = private_key.secret_data;
@@ -212,6 +228,22 @@ ColorSignature ColorSign::sign_message(const std::vector<uint8_t>& message,
             w1_encoded.push_back(coeff & 0xFF);
             w1_encoded.push_back((coeff >> 8) & 0xFF);
         }
+        // Log w1_encoded for debugging (should be removed in production)
+        if (security_monitor_ && rejection_attempts <= 3) {  // Log first few attempts only
+            std::string w1_hex;
+            for (size_t i = 0; i < std::min(size_t(20), w1_encoded.size()); ++i) {
+                char hex_str[3];
+                snprintf(hex_str, sizeof(hex_str), "%02X", w1_encoded[i]);
+                w1_hex += hex_str;
+            }
+            security_monitor_->log_event(AuditEntry{
+                AuditEvent::SIGNING_START,
+                std::chrono::system_clock::now(),
+                "w1_encoded first 20 bytes: " + w1_hex,
+                "ColorSign::sign_message",
+                0
+            });
+        }
 
         // Compute challenge c
         std::vector<uint8_t> challenge_seed = mu;
@@ -244,9 +276,25 @@ ColorSignature ColorSign::sign_message(const std::vector<uint8_t>& message,
 
         // Pack challenge c
         auto c_packed = pack_challenge(c);
+        // Log c_packed for debugging (should be removed in production)
+        if (security_monitor_ && rejection_attempts <= 3) {
+            std::string c_hex;
+            for (auto b : c_packed) {
+                char hex_str[3];
+                snprintf(hex_str, sizeof(hex_str), "%02X", b);
+                c_hex += hex_str;
+            }
+            security_monitor_->log_event(AuditEntry{
+                AuditEvent::SIGNING_START,
+                std::chrono::system_clock::now(),
+                "c_packed: " + c_hex,
+                "ColorSign::sign_message",
+                0
+            });
+        }
 
-        // Encode z using 18-bit encoding
-        std::vector<uint8_t> z_encoded = pack_polynomial_vector_ml_dsa(z, params_.modulus, 18);
+        // Encode z using uncompressed 32-bit packing
+        std::vector<uint8_t> z_encoded = pack_polynomial_vector(z);
 
         // End timing protection and log success
         timing_protection_->end_operation("sign_message_success");
@@ -502,19 +550,48 @@ std::vector<std::vector<uint32_t>> ColorSign::generate_matrix_A(const std::array
 }
 
 // Extract s1 from private key (first k polynomials)
-std::vector<std::vector<uint32_t>> ColorSign::extract_s1_from_private_key(const std::vector<uint8_t>& secret_data) const {
-    // secret_data is s1_color_data + s2_color_data, each with k * n * 3 bytes
-    size_t s1_size = params_.module_rank * params_.degree * 3;
-    std::vector<uint8_t> s1_data(secret_data.begin(), secret_data.begin() + s1_size);
-    return clwe::decode_colors_to_polynomial_vector(s1_data, params_.module_rank, params_.degree, params_.modulus);
+std::vector<std::vector<uint32_t>> ColorSign::extract_s1_from_private_key(const ColorSignPrivateKey& private_key) const {
+    if (private_key.use_compression) {
+        auto all_secret = clwe::unpack_polynomial_vector_ml_dsa(private_key.secret_data, 2 * params_.module_rank, params_.degree, params_.modulus, 4);
+        std::vector<std::vector<uint32_t>> s1(all_secret.begin(), all_secret.begin() + params_.module_rank);
+        // Debug logging for s1 (should be removed in production)
+        if (security_monitor_ && !s1.empty() && !s1[0].empty()) {
+            std::string debug_msg = "s1[0] first 5 coeffs: ";
+            for (size_t i = 0; i < std::min(size_t(5), s1[0].size()); ++i) {
+                debug_msg += std::to_string(s1[0][i]) + " ";
+            }
+            security_monitor_->log_event(AuditEntry{
+                AuditEvent::SIGNING_START,
+                std::chrono::system_clock::now(),
+                debug_msg,
+                "ColorSign::extract_s1_from_private_key",
+                0
+            });
+        }
+        return s1;
+    } else {
+        size_t s1_size = params_.module_rank * params_.degree;
+        std::vector<uint8_t> s1_data(private_key.secret_data.begin(), private_key.secret_data.begin() + s1_size);
+        return clwe::decode_colors_to_polynomial_vector(s1_data, params_.module_rank, params_.degree, params_.modulus);
+    }
 }
 
 // Extract s2 from private key (second k polynomials)
-std::vector<std::vector<uint32_t>> ColorSign::extract_s2_from_private_key(const std::vector<uint8_t>& secret_data) const {
-    // secret_data is s1_color_data + s2_color_data
-    size_t s1_size = params_.module_rank * params_.degree * 3;
-    std::vector<uint8_t> s2_data(secret_data.begin() + s1_size, secret_data.end());
-    return clwe::decode_colors_to_polynomial_vector(s2_data, params_.module_rank, params_.degree, params_.modulus);
+std::vector<std::vector<uint32_t>> ColorSign::extract_s2_from_private_key(const ColorSignPrivateKey& private_key) const {
+    if (private_key.use_compression) {
+        auto all_secret = clwe::unpack_polynomial_vector_ml_dsa(private_key.secret_data, 2 * params_.module_rank, params_.degree, params_.modulus, 4);
+        std::vector<std::vector<uint32_t>> s2(all_secret.begin() + params_.module_rank, all_secret.end());
+        if (!s2.empty() && !s2[0].empty()) {
+            std::cout << "DEBUG: s2[0] first 5 coeffs: ";
+            for (size_t i = 0; i < std::min(size_t(5), s2[0].size()); ++i) std::cout << s2[0][i] << " ";
+            std::cout << std::endl;
+        }
+        return s2;
+    } else {
+        size_t s1_size = params_.module_rank * params_.degree;
+        std::vector<uint8_t> s2_data(private_key.secret_data.begin() + s1_size, private_key.secret_data.end());
+        return clwe::decode_colors_to_polynomial_vector(s2_data, params_.module_rank, params_.degree, params_.modulus);
+    }
 }
 
 
@@ -554,6 +631,7 @@ std::vector<uint8_t> ColorSign::make_hint(const std::vector<std::vector<uint32_t
     uint32_t n = params_.degree;
     uint32_t omega = params_.omega;
     uint32_t q = params_.modulus;
+    uint32_t d = 13;  // 2^d = 8192, gamma2 = (q-1)/2 ≈ 2^22
 
     std::vector<uint8_t> h(omega, 0);
     size_t hint_index = 0;
@@ -564,15 +642,10 @@ std::vector<uint8_t> ColorSign::make_hint(const std::vector<std::vector<uint32_t
             int32_t w_signed = (w[i][j] >= (q + 1) / 2) ? static_cast<int32_t>(w[i][j]) - static_cast<int32_t>(q) : static_cast<int32_t>(w[i][j]);
             int32_t w_prime_signed = (w_prime[i][j] >= (q + 1) / 2) ? static_cast<int32_t>(w_prime[i][j]) - static_cast<int32_t>(q) : static_cast<int32_t>(w_prime[i][j]);
 
-            // Compute absolute values using constant-time operations
-            uint32_t abs_w = ConstantTime::ct_abs(w_signed);
-            uint32_t abs_w_prime = ConstantTime::ct_abs(w_prime_signed);
-
-            // Check conditions: |w| <= gamma2 and |w'| > gamma2
-            // Use constant-time comparison: (abs_w <= gamma2) AND (abs_w_prime > gamma2)
-            uint32_t w_condition = (abs_w <= gamma2) ? 1 : 0;
-            uint32_t w_prime_condition = (abs_w_prime > gamma2) ? 1 : 0;
-            uint32_t hint_needed = w_condition & w_prime_condition;
+            // Check condition: |w - w'| > 2^d
+            int32_t diff = w_signed - w_prime_signed;
+            uint32_t abs_diff = ConstantTime::ct_abs(diff);
+            uint32_t hint_needed = (abs_diff > (1U << d)) ? 1 : 0;
 
             if (hint_needed && hint_index < omega) {
                 // Set the hint bit in constant time
@@ -630,15 +703,17 @@ std::vector<uint8_t> ColorSignature::serialize() const {
 
 ColorSignature ColorSignature::deserialize(const std::vector<uint8_t>& data, const CLWEParameters& params) {
     // ML-DSA signature format: z || h || c
-    // z size: 6 + (k * n * 18 + 7) / 8 bytes (18-bit ML-DSA compression)
+    // z size: k * n * 4 bytes (32-bit uncompressed)
     // h size: omega bytes (hint)
     // c size: (degree + 3) / 4 bytes (packed challenge)
 
-    size_t z_size = 6 + ((params.module_rank * params.degree * 18 + 7) / 8);
+    size_t z_size = params.module_rank * params.degree * 4;
     size_t h_size = params.omega;
     size_t c_size = (params.degree + 3) / 4;
 
     size_t expected_size = z_size + h_size + c_size;
+    std::cout << "data.size(): " << data.size() << ", expected_size: " << expected_size << std::endl;
+    std::cout << "z_size: " << z_size << ", h_size: " << h_size << ", c_size: " << c_size << std::endl;
     if (data.size() != expected_size) {
         throw std::invalid_argument("Signature data size mismatch");
     }

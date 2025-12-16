@@ -9,7 +9,6 @@
 using namespace clwe;
 using namespace std::chrono;
 
-// Generate random polynomial for testing
 void generate_random_polynomial(uint32_t* poly, size_t size, uint32_t modulus) {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -20,7 +19,6 @@ void generate_random_polynomial(uint32_t* poly, size_t size, uint32_t modulus) {
     }
 }
 
-// Benchmark single NTT multiply operation
 double benchmark_single_multiply(NTTEngine& engine, const uint32_t* a, const uint32_t* b, uint32_t* result, size_t iterations) {
     auto start = high_resolution_clock::now();
     
@@ -34,9 +32,8 @@ double benchmark_single_multiply(NTTEngine& engine, const uint32_t* a, const uin
     return static_cast<double>(duration) / iterations;
 }
 
-// Benchmark batch operations
-double benchmark_batch_multiply(NTTEngine& engine, std::vector<std::vector<uint32_t>>& a_batch, 
-                               std::vector<std::vector<uint32_t>>& b_batch, 
+double benchmark_batch_multiply(NTTEngine& engine, std::vector<std::vector<uint32_t>>& a_batch,
+                               std::vector<std::vector<uint32_t>>& b_batch,
                                std::vector<std::vector<uint32_t>>& result_batch, size_t iterations) {
     auto start = high_resolution_clock::now();
     
@@ -63,7 +60,6 @@ double benchmark_batch_multiply(NTTEngine& engine, std::vector<std::vector<uint3
 int main() {
     std::cout << "=== ColorSign SIMD Optimization Benchmark ===" << std::endl;
     
-    // Detect CPU features
     CPUFeatures features = CPUFeatureDetector::detect();
     std::cout << "CPU Features: " << features.to_string() << std::endl;
     std::cout << "Max SIMD Support: ";
@@ -79,7 +75,6 @@ int main() {
     const uint32_t n = 256;
     const size_t iterations = 1000;
     
-    // Test each available NTT engine
     std::vector<SIMDSupport> support_levels = {
         SIMDSupport::NONE,
         SIMDSupport::AVX2,
@@ -94,26 +89,22 @@ int main() {
             
             auto engine = create_ntt_engine(simd_support, q, n);
             
-            // Verify the engine was created with the expected SIMD support
             if (engine->get_simd_support() != simd_support && simd_support != SIMDSupport::NONE) {
-                std::cout << "  Warning: Engine created with " << static_cast<int>(engine->get_simd_support()) 
+                std::cout << "  Warning: Engine created with " << static_cast<int>(engine->get_simd_support())
                          << " instead of " << static_cast<int>(simd_support) << std::endl;
             }
             
             std::cout << "  Actual SIMD Support: " << static_cast<int>(engine->get_simd_support()) << std::endl;
             std::cout << "  Cache Optimal: " << (engine->is_cache_optimal() ? "Yes" : "No") << std::endl;
             
-            // Generate test data
             std::vector<uint32_t> a(n), b(n), result(n);
             generate_random_polynomial(a.data(), n, q);
             generate_random_polynomial(b.data(), n, q);
             
-            // Benchmark single multiply
             double single_time = benchmark_single_multiply(*engine, a.data(), b.data(), result.data(), iterations);
             std::cout << "  Single multiply: " << std::fixed << std::setprecision(2) 
                      << single_time << " ns" << std::endl;
             
-            // Benchmark batch operations
             if (engine->get_simd_support() != SIMDSupport::NONE) {
                 const size_t batch_size = 8;
                 std::vector<std::vector<uint32_t>> a_batch(batch_size, std::vector<uint32_t>(n));
@@ -129,7 +120,6 @@ int main() {
                 std::cout << "  Batch multiply (" << batch_size << "): " << std::fixed << std::setprecision(2) 
                          << batch_time << " ns" << std::endl;
                 
-                // Calculate speedup
                 double expected_speedup = (simd_support == SIMDSupport::AVX2) ? 5.0 : 8.0;
                 if (batch_time < single_time / expected_speedup * 1.5) {
                     std::cout << "  ✓ Significant speedup detected!" << std::endl;

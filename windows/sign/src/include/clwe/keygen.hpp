@@ -70,6 +70,9 @@ private:
                                        const std::array<uint8_t, 32>& K) const;
     std::vector<uint8_t> encode_polynomial_vector_as_colors(const std::vector<std::vector<uint32_t>>& poly_vector) const;
     std::vector<std::vector<uint32_t>> decode_colors_to_polynomial_vector(const std::vector<uint8_t>& color_data) const;
+    // Compression helper methods
+    std::vector<std::vector<uint32_t>> unpack_polynomial_data(const std::vector<uint8_t>& data, uint32_t k, uint32_t n) const;
+    std::vector<uint8_t> pack_polynomial_data(const std::vector<std::vector<uint32_t>>& poly_vector) const;
 
 
 public:
@@ -85,6 +88,9 @@ public:
 
     // Deterministic key generation (for testing)
     std::pair<ColorSignPublicKey, ColorSignPrivateKey> generate_keypair_deterministic(const std::array<uint8_t, 32>& seed);
+
+    // Optimized key generation with advanced compression
+    std::pair<ColorSignPublicKey, ColorSignPrivateKey> generate_keypair_optimized();
 
     // Getters
     const CLWEParameters& params() const { return params_; }
