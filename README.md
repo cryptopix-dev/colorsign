@@ -291,7 +291,6 @@ For security-related issues, please email support@cryptopix.in instead of creati
 ## 🙏 Acknowledgments
 
 - NIST for the FIPS 204 standard
-- The CRYSTALS team for the Dilithium algorithm
 - OpenSSL project for cryptographic primitives
 - GoogleTest framework for testing infrastructure
 
