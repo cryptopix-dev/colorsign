@@ -1,6 +1,7 @@
 #include "../include/clwe/color_integration.hpp"
 #include "../include/clwe/utils.hpp"
 #include <stdexcept>
+#include <iostream>
 
 using namespace clwe;
 
@@ -11,7 +12,7 @@ std::vector<uint8_t> encode_polynomial_as_colors(const std::vector<uint32_t>& po
 
     for (uint32_t coeff : poly) {
         coeff %= modulus;
-        // Pack coefficient into RGB format (take lower 8 bits)
+        // Pack coefficient into 1 byte (lower 8 bits)
         color_data.push_back(coeff & 0xFF);
     }
 
@@ -22,13 +23,10 @@ std::vector<uint32_t> decode_colors_to_polynomial(const std::vector<uint8_t>& co
     std::vector<uint32_t> poly;
     poly.reserve(color_data.size());
 
-    // Unpack from RGB format where each pixel contains up to 3 coefficients
-    for (size_t pixel_start = 0; pixel_start < color_data.size(); pixel_start += 3) {
-        size_t end = std::min(pixel_start + 3, color_data.size());
-        for (size_t b = pixel_start; b < end; ++b) {
-            uint32_t coeff = color_data[b];
-            poly.push_back(coeff % modulus);
-        }
+    // Unpack 1 byte per coefficient
+    for (size_t i = 0; i < color_data.size(); ++i) {
+        uint32_t coeff = color_data[i];
+        poly.push_back(coeff % modulus);
     }
 
     return poly;
@@ -54,15 +52,13 @@ std::vector<std::vector<uint32_t>> decode_colors_to_polynomial_vector(const std:
     std::vector<std::vector<uint32_t>> poly_vector(k, std::vector<uint32_t>(n));
 
     size_t coeff_idx = 0;
-    // Unpack from RGB format where each pixel contains up to 3 coefficients
-    for (size_t pixel_start = 0; pixel_start < color_data.size() && coeff_idx < total_coeffs; pixel_start += 3) {
-        size_t end = std::min(pixel_start + 3, color_data.size());
-        for (size_t b = pixel_start; b < end && coeff_idx < total_coeffs; ++b) {
-            size_t i = coeff_idx / n;
-            size_t j = coeff_idx % n;
-            poly_vector[i][j] = static_cast<uint32_t>(color_data[b]) % modulus;
-            ++coeff_idx;
-        }
+    // Unpack 1 byte per coefficient
+    for (size_t i = 0; i < color_data.size() && coeff_idx < total_coeffs; ++i) {
+        uint32_t coeff = color_data[i];
+        size_t row = coeff_idx / n;
+        size_t col = coeff_idx % n;
+        poly_vector[row][col] = coeff % modulus;
+        ++coeff_idx;
     }
 
     return poly_vector;

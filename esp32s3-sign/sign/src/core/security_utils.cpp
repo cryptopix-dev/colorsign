@@ -142,7 +142,7 @@ SecurityError InputValidator::validate_parameters(const CLWEParameters& params) 
     }
 }
 
-SecurityError InputValidator::validate_key_format(const std::vector<uint8_t>& key_data, const CLWEParameters& params) {
+SecurityError InputValidator::validate_key_format(const std::vector<uint8_t>& key_data, const CLWEParameters& params, bool is_private_key) {
     SecurityError size_check = validate_key_size(key_data);
     if (size_check != SecurityError::SUCCESS) {
         return size_check;
@@ -151,14 +151,12 @@ SecurityError InputValidator::validate_key_format(const std::vector<uint8_t>& ke
     // Check if this is 8-bit grayscale color-encoded key
     size_t eight_bit_size = params.module_rank * params.degree * 1;
     if (key_data.size() == eight_bit_size) {
-        std::cout << "DEBUG: Key validated as 8-bit grayscale, size: " << key_data.size() << std::endl;
         return SecurityError::SUCCESS;
     }
 
     // Check if this is RGB565 color-encoded key
     size_t color_size = params.module_rank * params.degree * 2;
     if (key_data.size() == color_size) {
-        std::cout << "DEBUG: Key validated as RGB565, size: " << key_data.size() << std::endl;
         return SecurityError::SUCCESS;
     }
 
@@ -174,9 +172,6 @@ SecurityError InputValidator::validate_key_format(const std::vector<uint8_t>& ke
         expected_min_size = params.module_rank * params.degree * 4;
     }
 
-    std::cout << "DEBUG: Key size: " << key_data.size() << ", expected min: " << expected_min_size
-              << ", 8-bit expected: " << eight_bit_size << ", RGB565 expected: " << color_size
-              << ", is_compressed: " << is_compressed << std::endl;
 
     if (key_data.size() < expected_min_size) {
         return SecurityError::INVALID_KEY_FORMAT;

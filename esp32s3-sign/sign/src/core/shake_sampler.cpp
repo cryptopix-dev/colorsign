@@ -134,4 +134,29 @@ void IRAM_ATTR SHAKE128Sampler::squeeze(uint8_t* out, size_t len) {
     shake_out(&ctx_, out, len);
 }
 
+uint32_t SHAKE128Sampler::sample_uniform(uint32_t modulus) {
+    // Sample uniformly from [0, modulus)
+    // Use rejection sampling for uniform distribution
+#ifdef _MSC_VER
+    unsigned long index;
+    _BitScanReverse(&index, modulus - 1);
+    uint32_t mask = (1U << (index + 1)) - 1;
+#else
+    uint32_t mask = (1U << (32 - __builtin_clz(modulus - 1))) - 1;
+#endif
+
+    while (true) {
+        uint8_t bytes[4];
+        squeeze(bytes, 4);
+
+        uint32_t sample = (bytes[0] << 24) | (bytes[1] << 16) |
+                          (bytes[2] << 8) | bytes[3];
+        sample &= mask;
+
+        if (sample < modulus) {
+            return sample;
+        }
+    }
+}
+
 } // namespace clwe

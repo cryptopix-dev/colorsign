@@ -30,10 +30,10 @@ struct CLWEParameters {
     static const uint8_t DOMAIN_SEP_H_SIG = 0x02;  // For H function in signing
     static const uint8_t DOMAIN_SEP_PRF = 0x03;    // For PRF function
 
-    // Constructor with defaults - ML-DSA standard parameters
+    // Constructor with defaults - ML-DSA/ML-KEM standard parameters
     CLWEParameters(uint32_t sec_level = 44)
-        : security_level(sec_level), degree(256), modulus(8380417) {  // ML-DSA modulus
-        // Set parameters based on security level (ML-DSA)
+        : security_level(sec_level), degree(256), modulus(8380417) {  // Default ML-DSA modulus
+        // Set parameters based on security level (ML-DSA or ML-KEM)
         switch (sec_level) {
             case 44:  // ML-DSA-44
                 module_rank = 4;
@@ -68,8 +68,44 @@ struct CLWEParameters {
                 omega = 75;
                 lambda = 256;
                 break;
+            case 512:  // ML-KEM-512
+                module_rank = 2;
+                repetitions = 0;  // Not used in KEM
+                modulus = 3329;
+                eta = 2;
+                tau = 0;  // Not used in KEM
+                beta = 0;  // Not used in KEM
+                gamma1 = 0;  // Not used in KEM
+                gamma2 = 0;  // Not used in KEM
+                omega = 0;  // Not used in KEM
+                lambda = 128;
+                break;
+            case 768:  // ML-KEM-768
+                module_rank = 3;
+                repetitions = 0;  // Not used in KEM
+                modulus = 3329;
+                eta = 2;
+                tau = 0;  // Not used in KEM
+                beta = 0;  // Not used in KEM
+                gamma1 = 0;  // Not used in KEM
+                gamma2 = 0;  // Not used in KEM
+                omega = 0;  // Not used in KEM
+                lambda = 192;
+                break;
+            case 1024:  // ML-KEM-1024
+                module_rank = 4;
+                repetitions = 0;  // Not used in KEM
+                modulus = 3329;
+                eta = 2;
+                tau = 0;  // Not used in KEM
+                beta = 0;  // Not used in KEM
+                gamma1 = 0;  // Not used in KEM
+                gamma2 = 0;  // Not used in KEM
+                omega = 0;  // Not used in KEM
+                lambda = 256;
+                break;
             default:
-                throw std::invalid_argument("Invalid security level: must be 44, 65, or 87");
+                throw std::invalid_argument("Invalid security level: must be 44, 65, 87 (ML-DSA) or 512, 768, 1024 (ML-KEM)");
         }
         validate();
     }

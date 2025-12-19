@@ -10,75 +10,8 @@ namespace clwe {
 
 // Secure random bytes generation
 void secure_random_bytes(uint8_t* buffer, size_t len);
-
 // SHAKE256 hash function (XOF)
 std::vector<uint8_t> shake256(const std::vector<uint8_t>& input, size_t output_len);
-
-// SHAKE-128 based sampler for matrix generation
-class SHAKE128Sampler {
-private:
-    // Keccak state: 5x5 array of 64-bit words (1600 bits total)
-    uint64_t state_[25];
-    size_t rate_bytes_;  // Rate in bytes (168 for SHAKE128)
-    size_t offset_;      // Current position in the state
-
-    void reset();
-    void keccak_f1600();
-    void absorb(const uint8_t* data, size_t len);
-    void pad_and_absorb();
-
-public:
-    SHAKE128Sampler();
-    ~SHAKE128Sampler();
-
-    // Initialize with seed
-    void init(const uint8_t* seed, size_t seed_len);
-
-    // Squeeze bytes from SHAKE-128
-    void squeeze(uint8_t* out, size_t len);
-
-    // Sample from uniform distribution [0, modulus)
-    uint32_t sample_uniform(uint32_t modulus);
-};
-
-// SHAKE-256 based sampler for ML-DSA
-class SHAKE256Sampler {
-private:
-    // Keccak state: 5x5 array of 64-bit words (1600 bits total)
-    uint64_t state_[25];
-    size_t rate_bytes_;  // Rate in bytes (136 for SHAKE256)
-    size_t offset_;      // Current position in the state
-
-    void reset();
-    void keccak_f1600();
-    void absorb(const uint8_t* data, size_t len);
-    void pad_and_absorb();
-
-public:
-    SHAKE256Sampler();
-    ~SHAKE256Sampler();
-
-    // Initialize with seed
-    void init(const uint8_t* seed, size_t seed_len);
-
-    // Squeeze bytes from SHAKE-256
-    void squeeze(uint8_t* out, size_t len);
-
-    // Sample a single coefficient from centered binomial distribution
-    int32_t sample_binomial_coefficient(uint32_t eta);
-
-    // Sample polynomial with binomial distribution
-    void sample_polynomial_binomial(uint32_t* coeffs, size_t degree, uint32_t eta, uint32_t modulus);
-
-    // Sample from uniform distribution [0, modulus)
-    uint32_t sample_uniform(uint32_t modulus);
-
-    // Sample polynomial from uniform distribution
-    void sample_polynomial_uniform(uint32_t* coeffs, size_t degree, uint32_t modulus);
-
-    // Generate random bytes
-    void random_bytes(uint8_t* out, size_t len);
-};
 
 // Modular arithmetic utilities
 uint32_t mod_inverse(uint32_t a, uint32_t m);

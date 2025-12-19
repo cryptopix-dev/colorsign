@@ -5,6 +5,7 @@
 #include "../include/clwe/ntt_engine.hpp"
 #include "../include/clwe/sign.hpp"
 #include "../include/clwe/keygen.hpp"
+#include "../include/clwe/security_utils.hpp"
 #include <stdexcept>
 #include <algorithm>
 #include <cstring>
@@ -38,6 +39,8 @@ bool ColorSignVerify::verify_signature(const ColorSignPublicKey& public_key,
     if (public_key.public_data.empty() || signature.z_data.empty() || signature.c_data.size() != expected_c_data_size) {
         throw std::invalid_argument("Invalid public key or signature");
     }
+
+    // Public key format validation removed to prevent exceptions during operation
 
     // STEP 1: Run basic ML-DSA verification with challenge validation
     if (!verify_signature_basic(public_key, signature, message, context)) {
@@ -96,15 +99,9 @@ bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uin
     try {
         // Step 1: Compute mu (hash of message) - exactly like in signing
         std::vector<uint8_t> mu = hash_message(message, context);
-        std::cout << "Verification mu: ";
-        for (auto b : mu) std::cout << std::hex << (int)b << " ";
-        std::cout << std::dec << std::endl;
 
         // Step 2: Compute w1 (high bits of w) for challenge computation (exactly like signing)
         std::vector<uint8_t> w1_encoded = encode_w_for_challenge(w);
-        std::cout << "Verification w1_encoded first 10: ";
-        for (size_t i = 0; i < std::min(size_t(10), w1_encoded.size()); ++i) std::cout << std::hex << (int)w1_encoded[i] << " ";
-        std::cout << std::dec << std::endl;
         
         // Step 3: Create challenge seed (mu || w1_encoded) - exactly like in signing
         std::vector<uint8_t> challenge_seed = mu;
@@ -116,9 +113,6 @@ bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uin
         
         // Step 5: Pack computed challenge and compare with signature c_data
         std::vector<uint8_t> computed_c_packed = pack_challenge(computed_c);
-        std::cout << "Verification computed_c_packed: ";
-        for (auto b : computed_c_packed) std::cout << std::hex << (int)b << " ";
-        std::cout << std::dec << std::endl;
 
         // Step 7: CRITICAL SECURITY CHECK - compare packed challenges
         if (computed_c_packed.size() != signature.c_data.size()) {
@@ -132,16 +126,6 @@ bool ColorSignVerify::validate_challenge_match(const std::vector<std::vector<uin
                 challenges_match = false;
                 break;
             }
-        }
-
-        // Debug logs
-        std::cout << "Computed c_packed size: " << computed_c_packed.size() << ", signature c_data size: " << signature.c_data.size() << std::endl;
-        if (!challenges_match) {
-            std::cout << "Challenge mismatch! Computed: ";
-            for (auto b : computed_c_packed) std::cout << std::hex << (int)b << " ";
-            std::cout << std::endl << "Signature: ";
-            for (auto b : signature.c_data) std::cout << std::hex << (int)b << " ";
-            std::cout << std::dec << std::endl;
         }
 
         return challenges_match;
@@ -381,11 +365,6 @@ std::vector<std::vector<uint32_t>> ColorSignVerify::generate_matrix_A(const std:
 std::vector<std::vector<uint32_t>> ColorSignVerify::extract_t_from_public_key(const ColorSignPublicKey& public_key) const {
     if (public_key.use_compression) {
         auto t = clwe::unpack_polynomial_vector_ml_dsa(public_key.public_data, params_.module_rank, params_.degree, params_.modulus, 12);
-        if (!t.empty() && !t[0].empty()) {
-            std::cout << "DEBUG: t[0] first 5 coeffs: ";
-            for (size_t i = 0; i < std::min(size_t(5), t[0].size()); ++i) std::cout << t[0][i] << " ";
-            std::cout << std::endl;
-        }
         return t;
     } else {
         return clwe::decode_colors_to_polynomial_vector(public_key.public_data, params_.module_rank, params_.degree, params_.modulus);

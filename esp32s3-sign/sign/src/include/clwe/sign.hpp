@@ -5,6 +5,7 @@
 #include "keygen.hpp"
 #include "security_utils.hpp"
 #include "utils.hpp"
+#include "shake_sampler.hpp"
 #include <vector>
 #include <array>
 #include <memory>

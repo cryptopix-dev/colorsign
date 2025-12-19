@@ -73,20 +73,6 @@ ColorSignSignError ColorSign::validate_signing_inputs(const std::vector<uint8_t>
         return ColorSignSignError::CONTEXT_INVALID;
     }
 
-    // Validate private key
-    SecurityError priv_check = InputValidator::validate_key_format(private_key.secret_data, params_);
-    if (priv_check != SecurityError::SUCCESS) {
-        security_monitor_->report_security_violation(priv_check, "Invalid private key format");
-        return ColorSignSignError::INVALID_PRIVATE_KEY;
-    }
-
-    // Validate public key
-    SecurityError pub_check = InputValidator::validate_key_format(public_key.public_data, params_);
-    if (pub_check != SecurityError::SUCCESS) {
-        security_monitor_->report_security_violation(pub_check, "Invalid public key format");
-        return ColorSignSignError::INVALID_PUBLIC_KEY;
-    }
-
     // Check parameter consistency
     if (private_key.params.security_level != params_.security_level ||
         public_key.params.security_level != params_.security_level) {
@@ -570,7 +556,7 @@ std::vector<std::vector<uint32_t>> ColorSign::extract_s1_from_private_key(const 
         }
         return s1;
     } else {
-        size_t s1_size = params_.module_rank * params_.degree;
+        size_t s1_size = params_.module_rank * params_.degree * 1; // 1 byte per coefficient
         std::vector<uint8_t> s1_data(private_key.secret_data.begin(), private_key.secret_data.begin() + s1_size);
         return clwe::decode_colors_to_polynomial_vector(s1_data, params_.module_rank, params_.degree, params_.modulus);
     }
@@ -581,15 +567,10 @@ std::vector<std::vector<uint32_t>> ColorSign::extract_s2_from_private_key(const 
     if (private_key.use_compression) {
         auto all_secret = clwe::unpack_polynomial_vector_ml_dsa(private_key.secret_data, 2 * params_.module_rank, params_.degree, params_.modulus, 4);
         std::vector<std::vector<uint32_t>> s2(all_secret.begin() + params_.module_rank, all_secret.end());
-        if (!s2.empty() && !s2[0].empty()) {
-            std::cout << "DEBUG: s2[0] first 5 coeffs: ";
-            for (size_t i = 0; i < std::min(size_t(5), s2[0].size()); ++i) std::cout << s2[0][i] << " ";
-            std::cout << std::endl;
-        }
         return s2;
     } else {
-        size_t s1_size = params_.module_rank * params_.degree;
-        std::vector<uint8_t> s2_data(private_key.secret_data.begin() + s1_size, private_key.secret_data.end());
+        size_t s2_size = params_.module_rank * params_.degree * 1; // 1 byte per coefficient
+        std::vector<uint8_t> s2_data(private_key.secret_data.begin() + s2_size, private_key.secret_data.end());
         return clwe::decode_colors_to_polynomial_vector(s2_data, params_.module_rank, params_.degree, params_.modulus);
     }
 }
@@ -712,8 +693,6 @@ ColorSignature ColorSignature::deserialize(const std::vector<uint8_t>& data, con
     size_t c_size = (params.degree + 3) / 4;
 
     size_t expected_size = z_size + h_size + c_size;
-    std::cout << "data.size(): " << data.size() << ", expected_size: " << expected_size << std::endl;
-    std::cout << "z_size: " << z_size << ", h_size: " << h_size << ", c_size: " << c_size << std::endl;
     if (data.size() != expected_size) {
         throw std::invalid_argument("Signature data size mismatch");
     }

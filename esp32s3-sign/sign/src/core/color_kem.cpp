@@ -415,13 +415,7 @@ std::pair<ColorPublicKey, ColorPrivateKey> ColorKEM::keygen_deterministic(const 
     auto public_key_colors = generate_public_key(secret_key_colors, matrix_A, error_vector);
 
 
-    std::vector<uint8_t> secret_data;
-    for (const auto& poly : secret_key_colors) {
-        for (const auto& coeff : poly) {
-            auto bytes = color_secret_to_bytes(coeff);
-            secret_data.insert(secret_data.end(), bytes.begin(), bytes.end());
-        }
-    }
+    std::vector<uint8_t> secret_data = pack_polynomial_vector_ml_dsa(secret_key_colors, params_.modulus, 4);
 
     std::vector<uint8_t> public_data;
     for (const auto& poly : public_key_colors) {
@@ -589,24 +583,19 @@ ColorValue ColorKEM::decapsulate(const ColorPublicKey& public_key,
         throw std::invalid_argument("Ciphertext parameters do not match KEM instance parameters");
     }
 
-    // Validate private key data size
-    if (private_key.secret_data.size() != params_.module_rank * params_.degree * 4) {
-        throw std::invalid_argument("Invalid private key data size: expected " + std::to_string(params_.module_rank * params_.degree * 4) + " bytes, got " + std::to_string(private_key.secret_data.size()));
-    }
-
     // Validate private key data is not empty
     if (private_key.secret_data.empty()) {
         throw std::invalid_argument("Private key data cannot be empty");
     }
 
+    // Unpack private key using ML-DSA format
+    std::vector<std::vector<uint32_t>> secret_key_polys = unpack_polynomial_vector_ml_dsa(private_key.secret_data, params_.module_rank, params_.degree, params_.modulus, 4);
+
+    // Convert to ColorValue
     std::vector<std::vector<ColorValue>> secret_key_colors(params_.module_rank, std::vector<ColorValue>(params_.degree));
-    size_t idx_sk = 0;
     for (size_t i = 0; i < params_.module_rank; ++i) {
         for (size_t d = 0; d < params_.degree; ++d) {
-            std::vector<uint8_t> bytes(private_key.secret_data.begin() + idx_sk,
-                                       private_key.secret_data.begin() + idx_sk + 4);
-            secret_key_colors[i][d] = bytes_to_color_secret(bytes);
-            idx_sk += 4;
+            secret_key_colors[i][d] = ColorValue::from_math_value(secret_key_polys[i][d]);
         }
     }
     // std::cout << "DEBUG DECAP: Secret key colors (" << secret_key_colors.size() << " elements):" << std::endl;
@@ -739,7 +728,7 @@ std::vector<uint8_t> ColorPublicKey::serialize() const {
     data.insert(data.end(), seed.begin(), seed.end());
 
     // Use compressed encoding for public data
-    auto compressed_data = encode_color_kem_key_as_colors_compressed(public_data);
+    auto compressed_data = encode_polynomial_vector_as_colors_compressed(public_data, params.modulus);
     data.insert(data.end(), compressed_data.begin(), compressed_data.end());
 
     return data;
@@ -777,7 +766,7 @@ ColorPublicKey ColorPublicKey::deserialize(const std::vector<uint8_t>& data, con
 
         // Decompress the public data
         std::vector<uint8_t> compressed_data(data.begin() + offset, data.end());
-        key.public_data = decode_colors_to_color_kem_key_compressed(compressed_data, original_size);
+        key.public_data = decode_colors_to_polynomial_vector_compressed(compressed_data, params.module_rank, params.degree, params.modulus);
         key.params = params;
 
         // Validate public data size (should be multiple of 4 for ColorValue serialization and non-empty)
@@ -820,57 +809,64 @@ std::vector<uint8_t> ColorPrivateKey::serialize() const {
     data.push_back(static_cast<uint8_t>(original_size & 0xFF));
 
     // Use compressed encoding for secret data
-    auto compressed_data = encode_color_kem_key_as_colors_compressed(secret_data);
+    auto compressed_data = encode_polynomial_vector_as_colors_compressed(secret_data, params.modulus);
     data.insert(data.end(), compressed_data.begin(), compressed_data.end());
 
     return data;
 }
 
 ColorPrivateKey ColorPrivateKey::deserialize(const std::vector<uint8_t>& data, const CLWEParameters& params) {
-    if (data.size() < 8) { // Minimum: header(8)
-        throw std::invalid_argument("Private key data too small: minimum 8 bytes required, got " + std::to_string(data.size()));
-    }
-
     if (data.empty()) {
         throw std::invalid_argument("Private key data cannot be empty");
     }
 
-    size_t offset = 0;
-    uint8_t version = data[offset++];
-    uint8_t format_flag = data[offset++];
-
-    // Check if this is compressed format
-    if (version == 0x01 && format_flag == 0x02) {
-        // Compressed format
-        uint32_t original_size = (static_cast<uint32_t>(data[offset]) << 24) |
-                                (static_cast<uint32_t>(data[offset + 1]) << 16) |
-                                (static_cast<uint32_t>(data[offset + 2]) << 8) |
-                                data[offset + 3];
-        offset += 4;
-
+    // Check if this is ML-DSA format
+    if (data.size() >= 6 && data[0] == 0x03 && data[1] == 0x08) {
+        // ML-DSA format
         ColorPrivateKey key;
-
-        // Decompress the secret data
-        std::vector<uint8_t> compressed_data(data.begin() + offset, data.end());
-        key.secret_data = decode_colors_to_color_kem_key_compressed(compressed_data, original_size);
+        key.secret_data = data;  // Keep the packed data
         key.params = params;
-
-        // Validate secret data size (should be multiple of 4 for ColorValue serialization and non-empty)
-        if (key.secret_data.size() % 4 != 0 || key.secret_data.empty()) {
-            throw std::invalid_argument("Invalid private key data size: must be non-empty and multiple of 4 bytes, got " + std::to_string(key.secret_data.size()));
-        }
         return key;
+    } else if (data.size() < 8) { // Minimum: header(8)
+        throw std::invalid_argument("Private key data too small: minimum 8 bytes required, got " + std::to_string(data.size()));
     } else {
-        // Legacy uncompressed format (for backward compatibility)
-        ColorPrivateKey key;
-        key.secret_data = data;
-        key.params = params;
+        size_t offset = 0;
+        uint8_t version = data[offset++];
+        uint8_t format_flag = data[offset++];
 
-        // Validate secret data size (should be multiple of 4 for ColorValue serialization and non-empty)
-        if (key.secret_data.size() % 4 != 0 || key.secret_data.empty()) {
-            throw std::invalid_argument("Invalid private key data size: must be non-empty and multiple of 4 bytes, got " + std::to_string(key.secret_data.size()));
+        // Check if this is compressed format
+        if (version == 0x01 && format_flag == 0x02) {
+            // Compressed format
+            uint32_t original_size = (static_cast<uint32_t>(data[offset]) << 24) |
+                                    (static_cast<uint32_t>(data[offset + 1]) << 16) |
+                                    (static_cast<uint32_t>(data[offset + 2]) << 8) |
+                                    data[offset + 3];
+            offset += 4;
+
+            ColorPrivateKey key;
+
+            // Decompress the secret data
+            std::vector<uint8_t> compressed_data(data.begin() + offset, data.end());
+            key.secret_data = decode_colors_to_polynomial_vector_compressed(compressed_data, params.module_rank, params.degree, params.modulus);
+            key.params = params;
+
+            // Validate secret data size (should be multiple of 4 for ColorValue serialization and non-empty)
+            if (key.secret_data.size() % 4 != 0 || key.secret_data.empty()) {
+                throw std::invalid_argument("Invalid private key data size: must be non-empty and multiple of 4 bytes, got " + std::to_string(key.secret_data.size()));
+            }
+            return key;
+        } else {
+            // Legacy uncompressed format (for backward compatibility)
+            ColorPrivateKey key;
+            key.secret_data = data;
+            key.params = params;
+
+            // Validate secret data size (should be multiple of 4 for ColorValue serialization and non-empty)
+            if (key.secret_data.size() % 4 != 0 || key.secret_data.empty()) {
+                throw std::invalid_argument("Invalid private key data size: must be non-empty and multiple of 4 bytes, got " + std::to_string(key.secret_data.size()));
+            }
+            return key;
         }
-        return key;
     }
 }
 

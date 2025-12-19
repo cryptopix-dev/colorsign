@@ -8,6 +8,8 @@
 
 #ifdef ESP_PLATFORM
 #include <esp_attr.h>
+#else
+#define IRAM_ATTR
 #endif
 
 namespace clwe {
@@ -29,6 +31,9 @@ public:
 
     // Squeeze bytes from SHAKE-128
     void IRAM_ATTR squeeze(uint8_t* out, size_t len);
+
+    // Sample from uniform distribution [0, modulus)
+    uint32_t sample_uniform(uint32_t modulus);
 };
 
 // SHAKE-256 based sampler for Kyber/ML-KEM

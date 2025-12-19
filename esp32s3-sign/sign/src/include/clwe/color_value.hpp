@@ -212,7 +212,6 @@ struct ColorValue {
      *
      * Outputs the color's string representation followed by a newline.
      */
-    void print() const { std::cout << to_string() << std::endl; }
 };
 
 /**

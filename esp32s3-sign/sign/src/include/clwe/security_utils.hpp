@@ -108,7 +108,7 @@ public:
     static SecurityError validate_key_size(const std::vector<uint8_t>& key_data);
     static SecurityError validate_signature_size(const std::vector<uint8_t>& signature);
     static SecurityError validate_parameters(const struct CLWEParameters& params);
-    static SecurityError validate_key_format(const std::vector<uint8_t>& key_data, const CLWEParameters& params);
+    static SecurityError validate_key_format(const std::vector<uint8_t>& key_data, const CLWEParameters& params, bool is_private_key = false);
     static SecurityError validate_context_string(const std::vector<uint8_t>& context);
     static SecurityError validate_polynomial_vector_bounds(const std::vector<std::vector<uint32_t>>& poly_vec,
                                                            uint32_t expected_k, uint32_t expected_n,

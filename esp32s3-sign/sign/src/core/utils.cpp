@@ -189,190 +189,6 @@ std::vector<uint8_t> shake256(const std::vector<uint8_t>& input, size_t output_l
     return output;
 }
 
-// SHAKE128Sampler implementation
-SHAKE128Sampler::SHAKE128Sampler() : rate_bytes_(168), offset_(0) {  // 1344 bits / 8 = 168 bytes for SHAKE128
-    reset();
-}
-
-SHAKE128Sampler::~SHAKE128Sampler() {
-    // No dynamic memory to clean up
-}
-
-void SHAKE128Sampler::reset() {
-    std::memset(state_, 0, sizeof(state_));
-    offset_ = 0;
-}
-
-void SHAKE128Sampler::keccak_f1600() {
-    ::clwe::keccak_f1600(state_);
-}
-
-void SHAKE128Sampler::absorb(const uint8_t* data, size_t len) {
-    ::clwe::absorb_bytes(state_, rate_bytes_, data, len, offset_);
-}
-
-void SHAKE128Sampler::pad_and_absorb() {
-    // XOR domain separation byte 0x1F into current position
-    uint8_t* state_bytes = reinterpret_cast<uint8_t*>(state_);
-    state_bytes[offset_] ^= 0x1F;
-
-    // Pad with zeros to fill the rate
-    for (size_t i = offset_ + 1; i < rate_bytes_; ++i) {
-        state_bytes[i] = 0;
-    }
-
-    // Apply domain separation bit
-    state_bytes[rate_bytes_ - 1] ^= 0x80;
-
-    // Apply permutation
-    keccak_f1600();
-
-    offset_ = 0;  // Reset for squeezing
-}
-
-void SHAKE128Sampler::init(const uint8_t* seed, size_t seed_len) {
-    reset();
-    if (seed_len > 0) {
-        absorb(seed, seed_len);
-    }
-    pad_and_absorb();
-    offset_ = 0;  // Reset for squeezing
-}
-
-void SHAKE128Sampler::squeeze(uint8_t* out, size_t len) {
-    ::clwe::squeeze_bytes(state_, rate_bytes_, out, len, offset_);
-}
-
-uint32_t SHAKE128Sampler::sample_uniform(uint32_t modulus) {
-    // Sample uniformly from [0, modulus)
-    uint32_t result = 0;
-    uint32_t bits_needed = 0;
-    uint32_t temp = modulus - 1;
-    while (temp > 0) {
-        bits_needed++;
-        temp >>= 1;
-    }
-
-    while (true) {
-        uint8_t bytes[4];
-        squeeze(bytes, 4);
-        result = (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24));
-        result &= (1U << bits_needed) - 1;
-        if (result < modulus) {
-            return result;
-        }
-    }
-}
-
-// SHAKE256Sampler implementation
-SHAKE256Sampler::SHAKE256Sampler() : rate_bytes_(136), offset_(0) {  // 1088 bits / 8 = 136 bytes for SHAKE256
-    reset();
-}
-
-SHAKE256Sampler::~SHAKE256Sampler() {
-    // No dynamic memory to clean up
-}
-
-void SHAKE256Sampler::reset() {
-    std::memset(state_, 0, sizeof(state_));
-    offset_ = 0;
-}
-
-void SHAKE256Sampler::keccak_f1600() {
-    ::clwe::keccak_f1600(state_);
-}
-
-void SHAKE256Sampler::absorb(const uint8_t* data, size_t len) {
-    ::clwe::absorb_bytes(state_, rate_bytes_, data, len, offset_);
-}
-
-void SHAKE256Sampler::pad_and_absorb() {
-    // XOR domain separation byte 0x1F into current position
-    uint8_t* state_bytes = reinterpret_cast<uint8_t*>(state_);
-    state_bytes[offset_] ^= 0x1F;
-
-    // Pad with zeros to fill the rate
-    for (size_t i = offset_ + 1; i < rate_bytes_; ++i) {
-        state_bytes[i] = 0;
-    }
-
-    // Apply domain separation bit
-    state_bytes[rate_bytes_ - 1] ^= 0x80;
-
-    // Apply permutation
-    keccak_f1600();
-
-    offset_ = 0;  // Reset for squeezing
-}
-
-void SHAKE256Sampler::init(const uint8_t* seed, size_t seed_len) {
-    reset();
-    if (seed_len > 0) {
-        absorb(seed, seed_len);
-    }
-    pad_and_absorb();
-    offset_ = 0;  // Reset for squeezing
-}
-
-void SHAKE256Sampler::squeeze(uint8_t* out, size_t len) {
-    ::clwe::squeeze_bytes(state_, rate_bytes_, out, len, offset_);
-}
-
-int32_t SHAKE256Sampler::sample_binomial_coefficient(uint32_t eta) {
-    // Sample from centered binomial distribution B(2η, 0.5) - η
-    int32_t sum = 0;
-    for (uint32_t i = 0; i < eta; ++i) {
-        uint8_t byte;
-        squeeze(&byte, 1);
-        sum += (byte & 1);
-    }
-    for (uint32_t i = 0; i < eta; ++i) {
-        uint8_t byte;
-        squeeze(&byte, 1);
-        sum -= (byte & 1);
-    }
-    return sum;
-}
-
-void SHAKE256Sampler::sample_polynomial_binomial(uint32_t* coeffs, size_t degree,
-                                                uint32_t eta, uint32_t modulus) {
-    for (size_t i = 0; i < degree; ++i) {
-        int32_t coeff = sample_binomial_coefficient(eta);
-        coeffs[i] = (coeff % modulus + modulus) % modulus;  // Ensure non-negative
-    }
-}
-
-uint32_t SHAKE256Sampler::sample_uniform(uint32_t modulus) {
-    // Sample uniformly from [0, modulus)
-    uint32_t result = 0;
-    uint32_t bits_needed = 0;
-    uint32_t temp = modulus - 1;
-    while (temp > 0) {
-        bits_needed++;
-        temp >>= 1;
-    }
-
-    while (true) {
-        uint8_t bytes[4];
-        squeeze(bytes, 4);
-        result = (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24));
-        result &= (1U << bits_needed) - 1;
-        if (result < modulus) {
-            return result;
-        }
-    }
-}
-
-void SHAKE256Sampler::sample_polynomial_uniform(uint32_t* coeffs, size_t degree, uint32_t modulus) {
-    for (size_t i = 0; i < degree; ++i) {
-        coeffs[i] = sample_uniform(modulus);
-    }
-}
-
-void SHAKE256Sampler::random_bytes(uint8_t* out, size_t len) {
-    squeeze(out, len);
-}
-
 // Modular arithmetic utilities
 uint32_t mod_inverse(uint32_t a, uint32_t m) {
     int64_t m0 = m, t, q;
@@ -415,9 +231,10 @@ void compute_high_bits(const std::vector<uint32_t>& w, std::vector<uint32_t>& w1
 }
 
 void sample_challenge(std::vector<uint32_t>& c, const std::vector<uint8_t>& seed, uint32_t tau, uint32_t n, uint32_t q) {
-    // Initialize SHAKE256 with seed
-    SHAKE256Sampler sampler;
-    sampler.init(seed.data(), seed.size());
+    // Use shake256 to generate random bytes, enough for tau * 5 bytes
+    std::vector<uint8_t> random_bytes = shake256(seed, tau * 5);
+
+    size_t byte_index = 0;
 
     // Sample tau positions uniformly
     std::vector<uint32_t> positions(n);
@@ -427,7 +244,24 @@ void sample_challenge(std::vector<uint32_t>& c, const std::vector<uint8_t>& seed
 
     // Fisher-Yates shuffle to select tau positions
     for (uint32_t i = 0; i < tau; ++i) {
-        uint32_t j = i + (sampler.sample_uniform(n - i));
+        uint32_t remaining = n - i;
+        // Use rejection sampling for uniform distribution
+        uint32_t mask = (1U << (32 - __builtin_clz(remaining - 1))) - 1;
+        uint32_t r;
+        while (true) {
+            r = 0;
+            for (int b = 0; b < 4; ++b) {
+                if (byte_index >= random_bytes.size()) {
+                    // If we run out, fallback to 0 (should not happen with tau*5)
+                    r = 0;
+                    break;
+                }
+                r = (r << 8) | random_bytes[byte_index++];
+            }
+            r &= mask;
+            if (r < remaining) break;
+        }
+        uint32_t j = i + r;
         std::swap(positions[i], positions[j]);
     }
 
@@ -436,8 +270,7 @@ void sample_challenge(std::vector<uint32_t>& c, const std::vector<uint8_t>& seed
 
     // Assign +1 or -1 to selected positions
     for (uint32_t i = 0; i < tau; ++i) {
-        uint8_t sign_byte;
-        sampler.squeeze(&sign_byte, 1);
+        uint8_t sign_byte = random_bytes[byte_index++ % random_bytes.size()];
         c[positions[i]] = (sign_byte & 1) ? 1 : (q - 1);  // 1 or -1 mod q
     }
 }
@@ -1589,7 +1422,6 @@ std::vector<std::vector<uint32_t>> unpack_polynomial_vector_ml_dsa(const std::ve
     auto get_bit = [&]() {
         if (bits_left_in_byte == 0) {
             if (byte_index >= data.size()) {
-                std::cout << "Truncated ML-DSA compressed data: byte_index = " << byte_index << ", data.size() = " << data.size() << ", expected at least " << ((k * n * d + 7) / 8) << std::endl;
                 throw std::invalid_argument("Truncated ML-DSA compressed data");
             }
             current_byte = data[byte_index++];

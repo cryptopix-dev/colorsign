@@ -2,6 +2,7 @@
 #define CLWE_KEYGEN_HPP
 
 #include "parameters.hpp"
+#include "shake_sampler.hpp"
 #include <vector>
 #include <array>
 #include <memory>
